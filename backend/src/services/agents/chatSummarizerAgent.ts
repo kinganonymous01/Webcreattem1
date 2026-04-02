@@ -1,7 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
 import { safeParseJSON } from '../../utils/promptTemplates';
+import { logRawModelOutput, logStructured } from '../../utils/structuredLogger';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
+const MODEL_NAME = 'gemini-2.5-flash';
 
 const SYSTEM_PROMPT = `
 You are an AI that analyzes chat messages and determines user intent.
@@ -24,10 +26,7 @@ export async function chatSummarizerAgent(input: {
   currentMessage: string;
 }): Promise<ChatSummaryResult> {
   const { chatHistory, currentMessage } = input;
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `
+  const contents = `
 Chat history:
 ${JSON.stringify(chatHistory, null, 2)}
 
@@ -35,12 +34,24 @@ Current user message:
 ${currentMessage}
 
 Analyze and return the JSON.
-`,
+`;
+  logStructured('backend/src/services/agents/chatSummarizerAgent.ts', 'chatSummarizerAgent.request', {
+    model: MODEL_NAME,
+    input,
+    contents
+  });
+
+  const response = await ai.models.generateContent({
+    model: MODEL_NAME,
+    contents,
     config: {
       systemInstruction: SYSTEM_PROMPT,
     }
   });
 
   const raw = response.text || '';
-  return safeParseJSON<ChatSummaryResult>(raw);
+  logRawModelOutput('backend/src/services/agents/chatSummarizerAgent.ts', MODEL_NAME, raw);
+  const parsed = safeParseJSON<ChatSummaryResult>(raw);
+  logStructured('backend/src/services/agents/chatSummarizerAgent.ts', 'chatSummarizerAgent.response.parsed', parsed);
+  return parsed;
 }

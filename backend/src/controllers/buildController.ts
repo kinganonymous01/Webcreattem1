@@ -8,6 +8,7 @@ import { codeGeneratorAgent } from '../services/agents/codeGeneratorAgent';
 import { generateOrchestrator } from '../services/orchestrators/generateOrchestrator';
 import { createProject } from '../models/Project';
 import pLimit from 'p-limit';
+import { logStructured } from '../utils/structuredLogger';
 
 const REQUIRED_CORE_FILES = [
   'backend/package.json',
@@ -124,6 +125,11 @@ export async function build(req: Request, res: Response): Promise<any> {
   try {
     const { userId, username } = req.user;
     const { prompt }           = req.body;
+    logStructured('backend/src/controllers/buildController.ts', 'build.request.received', {
+      userId,
+      username,
+      prompt
+    });
 
     const limit     = pLimit(3);
     const projectId = crypto.randomUUID();
@@ -137,7 +143,9 @@ export async function build(req: Request, res: Response): Promise<any> {
     try {
       sendToClient(userId, { projectId, type: 'build', status: 'Planning project structure...' });
       const plannerRawResult = await plannerAgent(prompt);
+      logStructured('backend/src/controllers/buildController.ts', 'build.planner.rawResult', plannerRawResult);
       const plannerResult = ensureCorePlannerFiles(plannerRawResult);
+      logStructured('backend/src/controllers/buildController.ts', 'build.planner.normalizedResult', plannerResult);
 
       if (!plannerResult.projectName) {
         throw new Error('Planner did not return a project name');
@@ -157,11 +165,15 @@ export async function build(req: Request, res: Response): Promise<any> {
 
       sendToClient(userId, { projectId, type: 'build', status: 'Analyzing file requirements...' });
       const depthRawResult = await depthAgent(prompt, plannerResult);
+      logStructured('backend/src/controllers/buildController.ts', 'build.depth.rawResult', depthRawResult);
       const depthResult = ensureDepthCoverage(plannerResult, depthRawResult);
+      logStructured('backend/src/controllers/buildController.ts', 'build.depth.normalizedResult', depthResult);
 
       sendToClient(userId, { projectId, type: 'build', status: 'Generating code prompts...' });
       const promptResult = await promptGeneratorAgent(prompt, plannerResult, depthResult);
+      logStructured('backend/src/controllers/buildController.ts', 'build.promptGenerator.result', promptResult);
       const generationQueue = buildCodeGenerationQueue(depthResult, promptResult);
+      logStructured('backend/src/controllers/buildController.ts', 'build.codeGeneration.queue', generationQueue);
 
       sendToClient(userId, { projectId, type: 'build', status: 'Generating code...' });
       const codeFiles: FileItem[] = await Promise.all(
@@ -172,6 +184,7 @@ export async function build(req: Request, res: Response): Promise<any> {
           })
         )
       );
+      logStructured('backend/src/controllers/buildController.ts', 'build.codeGeneration.outputFiles', codeFiles);
 
       sendToClient(userId, { projectId, type: 'build', status: 'Validating and fixing code...' });
       const orchResult = await generateOrchestrator({
@@ -181,6 +194,7 @@ export async function build(req: Request, res: Response): Promise<any> {
         descriptions: depthResult.files,
         structure:    depthResult.structure
       });
+      logStructured('backend/src/controllers/buildController.ts', 'build.validation.orchestratorResult', orchResult);
 
       if (!orchResult.success) {
         sendToClient(userId, {
@@ -215,12 +229,14 @@ export async function build(req: Request, res: Response): Promise<any> {
       });
 
     } catch (innerErr) {
+      logStructured('backend/src/controllers/buildController.ts', 'build.innerError', innerErr, 'ERROR');
       console.error('Inner build error:', innerErr);
       sendToClient(userId, { projectId, type: 'build', status: 'Build failed' });
       return res.status(500).json({ success: false, message: 'Build pipeline failed' });
     }
 
   } catch (outerErr) {
+    logStructured('backend/src/controllers/buildController.ts', 'build.outerError', outerErr, 'ERROR');
     console.error('Outer build error:', outerErr);
     return res.status(500).json({ success: false, message: 'Failed to start build' });
   }

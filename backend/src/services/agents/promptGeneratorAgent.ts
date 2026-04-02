@@ -1,7 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
 import { TECH_STACK, safeParseJSON } from '../../utils/promptTemplates';
+import { logRawModelOutput, logStructured } from '../../utils/structuredLogger';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
+const MODEL_NAME = 'gemini-2.5-flash';
 
 const SYSTEM_PROMPT = `
 You are a senior engineer writing detailed code-generation prompts for each file.
@@ -55,21 +57,32 @@ export async function promptGeneratorAgent(
   const fileDescriptions = depthResult.files.map(f =>
     `${f.path}: ${JSON.stringify(f.description)}`
   ).join('\n\n');
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `
+  const contents = `
 Original prompt: ${prompt}
 All file descriptions:
 ${fileDescriptions}
 
 Write a code-generation prompt for EACH of the ${depthResult.files.length} files.
-`,
+`;
+  logStructured('backend/src/services/agents/promptGeneratorAgent.ts', 'promptGeneratorAgent.request', {
+    model: MODEL_NAME,
+    prompt,
+    plannerResult,
+    depthResult,
+    contents
+  });
+
+  const response = await ai.models.generateContent({
+    model: MODEL_NAME,
+    contents,
     config: {
       systemInstruction: SYSTEM_PROMPT,
     }
   });
 
   const raw = response.text || '';
-  return safeParseJSON<PromptGeneratorResult>(raw);
+  logRawModelOutput('backend/src/services/agents/promptGeneratorAgent.ts', MODEL_NAME, raw);
+  const parsed = safeParseJSON<PromptGeneratorResult>(raw);
+  logStructured('backend/src/services/agents/promptGeneratorAgent.ts', 'promptGeneratorAgent.response.parsed', parsed);
+  return parsed;
 }

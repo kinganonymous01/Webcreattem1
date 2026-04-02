@@ -1,0 +1,5 @@
+{
+  "name": "AI Website Builder",
+  "description": "An AI-powered website builder that generates full-stack web applications using Google Gemini and E2B sandboxes.",
+  "requestFramePermissions": []
+}

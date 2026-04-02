@@ -1,0 +1,13 @@
+{
+  "name": "ai-website-builder-root",
+  "private": true,
+  "scripts": {
+    "postinstall": "cd backend && npm install && cd ../frontend && npm install",
+    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
+    "build": "cd backend && npm run build && cd ../frontend && npm run build",
+    "start": "concurrently \"cd backend && npm run start\" \"cd frontend && npm run preview -- --port 3000 --host 0.0.0.0\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

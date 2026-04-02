@@ -6,6 +6,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: '0.0.0.0',
+    allowedHosts: ['webcreattem1.onrender.com'],
     headers: {
       'Cross-Origin-Embedder-Policy': 'require-corp',
       'Cross-Origin-Opener-Policy':   'same-origin'
@@ -25,6 +26,7 @@ export default defineConfig({
   preview: {
     port: 3000,
     host: '0.0.0.0',
+    allowedHosts: ['webcreattem1.onrender.com'],
     headers: {
       'Cross-Origin-Embedder-Policy': 'require-corp',
       'Cross-Origin-Opener-Policy':   'same-origin'

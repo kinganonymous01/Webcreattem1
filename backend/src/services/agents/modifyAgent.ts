@@ -1,7 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
 import { TECH_STACK, safeParseJSON } from '../../utils/promptTemplates';
+import { logRawModelOutput, logStructured } from '../../utils/structuredLogger';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
+const MODEL_NAME = 'gemini-2.5-flash';
 
 const SYSTEM_PROMPT = `
 You are a senior engineer implementing user-requested changes to a full-stack web application.
@@ -55,10 +57,7 @@ export async function modifyAgent(input: {
   promptContext?:    string;
 }): Promise<AgentResponse> {
   const { instruction, descriptions, previousLog, validationErrors, promptContext } = input;
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `
+  const contents = `
 Instruction to implement: ${instruction}
 ${promptContext ? `Context: ${promptContext}` : ''}
 
@@ -73,12 +72,24 @@ ${validationErrors && validationErrors.length > 0
   : 'No current validation errors.'}
 
 Take ONE action.
-`,
+`;
+  logStructured('backend/src/services/agents/modifyAgent.ts', 'modifyAgent.request', {
+    model: MODEL_NAME,
+    input,
+    contents
+  });
+
+  const response = await ai.models.generateContent({
+    model: MODEL_NAME,
+    contents,
     config: {
       systemInstruction: SYSTEM_PROMPT,
     }
   });
 
   const raw = response.text || '';
-  return safeParseJSON<AgentResponse>(raw);
+  logRawModelOutput('backend/src/services/agents/modifyAgent.ts', MODEL_NAME, raw);
+  const parsed = safeParseJSON<AgentResponse>(raw);
+  logStructured('backend/src/services/agents/modifyAgent.ts', 'modifyAgent.response.parsed', parsed);
+  return parsed;
 }

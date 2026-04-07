@@ -94,16 +94,8 @@ export async function generateOrchestrator(
       });
 
       let currentErrors: CleanedError[] = [...validationErrors];
-      let fixIteration = 0;
 
       while (currentErrors.length > 0 && timeRemaining() > 0) {
-        fixIteration += 1;
-        logStructured('backend/src/services/orchestrators/generateOrchestrator.ts', 'generateOrchestrator.fix.iteration.start', {
-          validationCycle,
-          fixIteration,
-          currentErrors,
-          previousLog
-        });
         sendToClient(userId, {
           projectId,
           type:   'build',
@@ -116,22 +108,11 @@ export async function generateOrchestrator(
           errors:      currentErrors,
           previousLog
         });
-        logStructured('backend/src/services/orchestrators/generateOrchestrator.ts', 'generateOrchestrator.fix.iteration.agentResponse', {
-          validationCycle,
-          fixIteration,
-          agentResponse
-        });
 
         if (agentResponse.action === "1") {
           const cmd    = agentResponse.data as string;
           const result = await commandRunner(sandbox, cmd);
           const logResult = result.stdout + result.stderr;
-          logStructured('backend/src/services/orchestrators/generateOrchestrator.ts', 'generateOrchestrator.fix.command.executed', {
-            validationCycle,
-            fixIteration,
-            command: cmd,
-            result
-          });
 
           const filteredErrors = currentErrors.filter(e =>
             logResult.includes(e.error.slice(0, 50))
@@ -146,23 +127,12 @@ export async function generateOrchestrator(
         if (agentResponse.action === "2") {
           const updates = agentResponse.data as FileUpdateItem[];
           await fileUpdater(sandbox, currentFiles, updates);
-          logStructured('backend/src/services/orchestrators/generateOrchestrator.ts', 'generateOrchestrator.fix.files.updated', {
-            validationCycle,
-            fixIteration,
-            updates
-          });
           previousLog.push({ action: "2", data: updates, result: 'Files updated' });
         }
 
         if (agentResponse.action === "3") {
           const reads    = agentResponse.data as FileReadItem[];
           const contents = fileReader(currentFiles, reads);
-          logStructured('backend/src/services/orchestrators/generateOrchestrator.ts', 'generateOrchestrator.fix.files.read', {
-            validationCycle,
-            fixIteration,
-            reads,
-            contents
-          });
           previousLog.push({ action: "3", data: reads, result: contents });
         }
 
@@ -170,11 +140,6 @@ export async function generateOrchestrator(
           if (agentResponse.fixed_status === true) {
             currentErrors = [];
           }
-          logStructured('backend/src/services/orchestrators/generateOrchestrator.ts', 'generateOrchestrator.fix.completedSignal', {
-            validationCycle,
-            fixIteration,
-            fixedStatus: agentResponse.fixed_status
-          });
           previousLog.push({ action: "0", data: '', result: '' });
           break;
         }

@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { TECH_STACK, safeParseJSON } from '../../utils/promptTemplates';
+import { retryableGenerateContent } from './retryableGenerateContent';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
 
@@ -61,7 +62,7 @@ export async function errorAgent(input: {
     `=== ${f.path} ===\n${f.content}`
   ).join('\n\n');
 
-  const response = await ai.models.generateContent({
+  const response = await retryableGenerateContent(ai, {
     model: 'gemini-3-flash-preview',
     contents: `
 Current errors:
@@ -81,7 +82,7 @@ Take ONE action to fix these errors.
     config: {
       systemInstruction: SYSTEM_PROMPT,
     }
-  });
+  }, 'errorAgent');
 
   const raw = response.text || '';
   return safeParseJSON<AgentResponse>(raw);

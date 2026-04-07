@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { TECH_STACK, safeParseJSON } from '../../utils/promptTemplates';
+import { retryableGenerateContent } from './retryableGenerateContent';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
 
@@ -56,7 +57,7 @@ export async function modifyAgent(input: {
 }): Promise<AgentResponse> {
   const { instruction, descriptions, previousLog, validationErrors, promptContext } = input;
 
-  const response = await ai.models.generateContent({
+  const response = await retryableGenerateContent(ai, {
     model: 'gemini-3-flash-preview',
     contents: `
 Instruction to implement: ${instruction}
@@ -77,7 +78,7 @@ Take ONE action.
     config: {
       systemInstruction: SYSTEM_PROMPT,
     }
-  });
+  }, 'modifyAgent');
 
   const raw = response.text || '';
   return safeParseJSON<AgentResponse>(raw);

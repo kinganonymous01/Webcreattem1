@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { TECH_STACK, safeParseJSON } from '../../utils/promptTemplates';
+import { retryableGenerateContent } from './retryableGenerateContent';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
 
@@ -53,13 +54,13 @@ Additional rules (supplementing the ABSOLUTE STRUCTURE RULE above):
 export async function plannerAgent(
   prompt: string
 ): Promise<PlannerResult> {
-  const response = await ai.models.generateContent({
+  const response = await retryableGenerateContent(ai, {
     model: 'gemini-3-flash-preview',
     contents: `Create a project plan for: ${prompt}`,
     config: {
       systemInstruction: SYSTEM_PROMPT,
     }
-  });
+  }, 'plannerAgent');
 
   const raw = response.text || '';
   return safeParseJSON<PlannerResult>(raw);

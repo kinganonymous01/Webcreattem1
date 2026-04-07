@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { TECH_STACK, stripMarkdownFences } from '../../utils/promptTemplates';
+import { retryableGenerateContent } from './retryableGenerateContent';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
 
@@ -42,13 +43,13 @@ export async function codeGeneratorAgent(
   filePrompt: string,
   filePath:   string
 ): Promise<string> {
-  const response = await ai.models.generateContent({
+  const response = await retryableGenerateContent(ai, {
     model: 'gemini-3-flash-preview',
     contents: `Write the complete contents of: ${filePath}\n\n${filePrompt}`,
     config: {
       systemInstruction: SYSTEM_PROMPT,
     }
-  });
+  }, 'codeGeneratorAgent');
 
   const raw  = response.text || '';
   const code = stripMarkdownFences(raw);

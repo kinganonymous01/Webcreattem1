@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { TECH_STACK, exampleDescription, safeParseJSON } from '../../utils/promptTemplates';
+import { retryableGenerateContent } from './retryableGenerateContent';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
 
@@ -60,7 +61,7 @@ export async function depthAgent(
   prompt:        string,
   plannerResult: PlannerResult
 ): Promise<DepthResult> {
-  const response = await ai.models.generateContent({
+  const response = await retryableGenerateContent(ai, {
     model: 'gemini-3-flash-preview',
     contents: `
 Project prompt: ${prompt}
@@ -72,7 +73,7 @@ Write detailed descriptions for ALL ${plannerResult.files.length} files.
     config: {
       systemInstruction: SYSTEM_PROMPT,
     }
-  });
+  }, 'depthAgent');
 
   const raw = response.text || '';
   return safeParseJSON<DepthResult>(raw);

@@ -69,6 +69,13 @@ ${JSON.stringify(plannerResult, null, 2)}
 
 Write detailed descriptions for ALL ${plannerResult.files.length} files.
 `;
+  logStructured('backend/src/services/agents/depthAgent.ts', 'depthAgent.request', {
+    model: MODEL_NAME,
+    prompt,
+    plannerResult,
+    contents
+  });
+
   const response = await ai.models.generateContent({
     model: MODEL_NAME,
     contents,
@@ -80,6 +87,6 @@ Write detailed descriptions for ALL ${plannerResult.files.length} files.
   const raw = response.text || '';
   logRawModelOutput('backend/src/services/agents/depthAgent.ts', MODEL_NAME, raw);
   const parsed = safeParseJSON<DepthResult>(raw);
-  logStructured('backend/src/services/agents/depthAgent.ts', 'depthAgent.output', parsed);
+  logStructured('backend/src/services/agents/depthAgent.ts', 'depthAgent.response.parsed', parsed);
   return parsed;
 }

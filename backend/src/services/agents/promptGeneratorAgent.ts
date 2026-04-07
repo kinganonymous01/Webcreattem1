@@ -64,6 +64,13 @@ ${fileDescriptions}
 
 Write a code-generation prompt for EACH of the ${depthResult.files.length} files.
 `;
+  logStructured('backend/src/services/agents/promptGeneratorAgent.ts', 'promptGeneratorAgent.request', {
+    model: MODEL_NAME,
+    prompt,
+    plannerResult,
+    depthResult,
+    contents
+  });
 
   const response = await ai.models.generateContent({
     model: MODEL_NAME,
@@ -76,9 +83,6 @@ Write a code-generation prompt for EACH of the ${depthResult.files.length} files
   const raw = response.text || '';
   logRawModelOutput('backend/src/services/agents/promptGeneratorAgent.ts', MODEL_NAME, raw);
   const parsed = safeParseJSON<PromptGeneratorResult>(raw);
-  logStructured('backend/src/services/agents/promptGeneratorAgent.ts', 'promptGeneratorAgent.output', {
-    fileCount: parsed.files.length,
-    files: parsed.files
-  });
+  logStructured('backend/src/services/agents/promptGeneratorAgent.ts', 'promptGeneratorAgent.response.parsed', parsed);
   return parsed;
 }

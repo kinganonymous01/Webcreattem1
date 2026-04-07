@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { TECH_STACK, exampleDescription, safeParseJSON } from '../../utils/promptTemplates';
 import { logRawModelOutput, logStructured } from '../../utils/structuredLogger';
+import { retryGeminiCall } from '../../utils/aiRetry';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
 const MODEL_NAME = 'gemini-2.5-flash';
@@ -69,13 +70,16 @@ ${JSON.stringify(plannerResult, null, 2)}
 
 Write detailed descriptions for ALL ${plannerResult.files.length} files.
 `;
-  const response = await ai.models.generateContent({
-    model: MODEL_NAME,
-    contents,
-    config: {
-      systemInstruction: SYSTEM_PROMPT,
-    }
-  });
+  const response = await retryGeminiCall(
+    'depthAgent',
+    () => ai.models.generateContent({
+      model: MODEL_NAME,
+      contents,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+      }
+    })
+  );
 
   const raw = response.text || '';
   logRawModelOutput('backend/src/services/agents/depthAgent.ts', MODEL_NAME, raw);

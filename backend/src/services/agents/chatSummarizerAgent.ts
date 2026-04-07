@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { safeParseJSON } from '../../utils/promptTemplates';
 import { logRawModelOutput, logStructured } from '../../utils/structuredLogger';
+import { retryGeminiCall } from '../../utils/aiRetry';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
 const MODEL_NAME = 'gemini-2.5-flash';
@@ -41,13 +42,16 @@ Analyze and return the JSON.
     contents
   });
 
-  const response = await ai.models.generateContent({
-    model: MODEL_NAME,
-    contents,
-    config: {
-      systemInstruction: SYSTEM_PROMPT,
-    }
-  });
+  const response = await retryGeminiCall(
+    'chatSummarizerAgent',
+    () => ai.models.generateContent({
+      model: MODEL_NAME,
+      contents,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+      }
+    })
+  );
 
   const raw = response.text || '';
   logRawModelOutput('backend/src/services/agents/chatSummarizerAgent.ts', MODEL_NAME, raw);

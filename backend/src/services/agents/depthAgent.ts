@@ -1,7 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
 import { TECH_STACK, exampleDescription, safeParseJSON } from '../../utils/promptTemplates';
+import { logRawModelOutput, logStructured } from '../../utils/structuredLogger';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
+const MODEL_NAME = 'gemini-2.5-flash';
 
 const SYSTEM_PROMPT = `
 You are a senior full-stack engineer writing detailed implementation plans.
@@ -60,20 +62,24 @@ export async function depthAgent(
   prompt:        string,
   plannerResult: PlannerResult
 ): Promise<DepthResult> {
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `
+  const contents = `
 Project prompt: ${prompt}
 File structure:
 ${JSON.stringify(plannerResult, null, 2)}
 
 Write detailed descriptions for ALL ${plannerResult.files.length} files.
-`,
+`;
+  const response = await ai.models.generateContent({
+    model: MODEL_NAME,
+    contents,
     config: {
       systemInstruction: SYSTEM_PROMPT,
     }
   });
 
   const raw = response.text || '';
-  return safeParseJSON<DepthResult>(raw);
+  logRawModelOutput('backend/src/services/agents/depthAgent.ts', MODEL_NAME, raw);
+  const parsed = safeParseJSON<DepthResult>(raw);
+  logStructured('backend/src/services/agents/depthAgent.ts', 'depthAgent.output', parsed);
+  return parsed;
 }

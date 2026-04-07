@@ -6,6 +6,7 @@ import { commandRunner } from '../actions/commandRunner';
 import { fileUpdater } from '../actions/fileUpdater';
 import { fileReader } from '../actions/fileReader';
 import { syncFilesFromSandbox } from '../actions/fileSyncer';
+import { logStructured } from '../../utils/structuredLogger';
 
 const FIVE_MINUTES      = 5 * 60 * 1000;
 const VALIDATION_COMMANDS = [
@@ -19,12 +20,23 @@ export async function modifyOrchestrator(
   input: ModifyOrchestratorInput
 ): Promise<ModifyOrchestratorResult> {
   const { files, descriptions, instruction, projectId, userId } = input;
+  logStructured('backend/src/services/orchestrators/modifyOrchestrator.ts', 'modifyOrchestrator.start', {
+    projectId,
+    userId,
+    instruction,
+    fileCount: files.length,
+    descriptionCount: descriptions.length
+  });
 
   const sandbox = await Sandbox.create({ timeoutMs: 360_000 });
 
   try {
     for (const file of files) {
       await sandbox.files.write(file.path, file.content);
+      logStructured('backend/src/services/orchestrators/modifyOrchestrator.ts', 'modifyOrchestrator.sandbox.writeFile', {
+        path: file.path,
+        content: file.content
+      });
     }
 
     const startTime     = Date.now();
@@ -43,16 +55,22 @@ export async function modifyOrchestrator(
         previousLog,
         validationErrors: lastErrors
       });
+      logStructured('backend/src/services/orchestrators/modifyOrchestrator.ts', 'modifyOrchestrator.initialLoop.agentResponse', agentResponse);
 
       if (agentResponse.action === "1") {
         const cmd    = agentResponse.data as string;
         const result = await commandRunner(sandbox, cmd);
+        logStructured('backend/src/services/orchestrators/modifyOrchestrator.ts', 'modifyOrchestrator.initialLoop.commandResult', {
+          command: cmd,
+          result
+        });
         previousLog.push({ action: "1", data: cmd, result: result.stdout + result.stderr });
       }
 
       if (agentResponse.action === "2") {
         const updates = agentResponse.data as FileUpdateItem[];
         await fileUpdater(sandbox, currentFiles, updates);
+        logStructured('backend/src/services/orchestrators/modifyOrchestrator.ts', 'modifyOrchestrator.initialLoop.filesUpdated', updates);
         updates.forEach(u => {
           const existing = modifiedFiles.findIndex(m => m.path === u.filepath);
           if (existing !== -1) {
@@ -67,6 +85,10 @@ export async function modifyOrchestrator(
       if (agentResponse.action === "3") {
         const reads    = agentResponse.data as FileReadItem[];
         const contents = fileReader(currentFiles, reads);
+        logStructured('backend/src/services/orchestrators/modifyOrchestrator.ts', 'modifyOrchestrator.initialLoop.filesRead', {
+          reads,
+          contents
+        });
         previousLog.push({ action: "3", data: reads, result: contents });
       }
 
@@ -82,6 +104,10 @@ export async function modifyOrchestrator(
     const validationErrors: CleanedError[] = [];
     for (const cmd of VALIDATION_COMMANDS) {
       const result = await commandRunner(sandbox, cmd);
+      logStructured('backend/src/services/orchestrators/modifyOrchestrator.ts', 'modifyOrchestrator.validation.command.result', {
+        command: cmd,
+        result
+      });
       if (result.exitCode !== 0) {
         validationErrors.push({
           command: cmd,
@@ -129,10 +155,19 @@ export async function modifyOrchestrator(
           validationErrors: currentValidationErrors,
           promptContext:    `Focus on ${currentSide} errors`
         });
+        logStructured('backend/src/services/orchestrators/modifyOrchestrator.ts', 'modifyOrchestrator.fixLoop.agentResponse', {
+          currentSide,
+          agentResponse,
+          currentValidationErrors
+        });
 
         if (agentResponse.action === "1") {
           const cmd    = agentResponse.data as string;
           const result = await commandRunner(sandbox, cmd);
+          logStructured('backend/src/services/orchestrators/modifyOrchestrator.ts', 'modifyOrchestrator.fixLoop.commandResult', {
+            command: cmd,
+            result
+          });
           const resultWithErrors = result.stdout + result.stderr +
             '\n\nActive errors:\n' + JSON.stringify(currentValidationErrors);
           previousLog.push({ action: "1", data: cmd, result: resultWithErrors });
@@ -141,6 +176,7 @@ export async function modifyOrchestrator(
         if (agentResponse.action === "2") {
           const updates = agentResponse.data as FileUpdateItem[];
           await fileUpdater(sandbox, currentFiles, updates);
+          logStructured('backend/src/services/orchestrators/modifyOrchestrator.ts', 'modifyOrchestrator.fixLoop.filesUpdated', updates);
           updates.forEach(u => {
             const existing = modifiedFiles.findIndex(m => m.path === u.filepath);
             if (existing !== -1) {
@@ -155,6 +191,10 @@ export async function modifyOrchestrator(
         if (agentResponse.action === "3") {
           const reads    = agentResponse.data as FileReadItem[];
           const contents = fileReader(currentFiles, reads);
+          logStructured('backend/src/services/orchestrators/modifyOrchestrator.ts', 'modifyOrchestrator.fixLoop.filesRead', {
+            reads,
+            contents
+          });
           previousLog.push({ action: "3", data: reads, result: contents });
         }
 
@@ -168,6 +208,10 @@ export async function modifyOrchestrator(
       const newErrors: CleanedError[] = [];
       for (const cmd of VALIDATION_COMMANDS) {
         const result = await commandRunner(sandbox, cmd);
+        logStructured('backend/src/services/orchestrators/modifyOrchestrator.ts', 'modifyOrchestrator.fixLoop.validation.command.result', {
+          command: cmd,
+          result
+        });
         if (result.exitCode !== 0) {
           newErrors.push({
             command: cmd,
@@ -206,7 +250,9 @@ export async function modifyOrchestrator(
   } finally {
     try {
       await sandbox.kill();
+      logStructured('backend/src/services/orchestrators/modifyOrchestrator.ts', 'modifyOrchestrator.sandbox.killed');
     } catch (killErr) {
+      logStructured('backend/src/services/orchestrators/modifyOrchestrator.ts', 'modifyOrchestrator.sandbox.killError', killErr, 'ERROR');
       console.error('Failed to kill modify sandbox:', killErr);
     }
   }

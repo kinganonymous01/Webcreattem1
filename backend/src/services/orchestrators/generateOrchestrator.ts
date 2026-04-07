@@ -5,6 +5,7 @@ import { commandRunner } from '../actions/commandRunner';
 import { fileUpdater } from '../actions/fileUpdater';
 import { fileReader } from '../actions/fileReader';
 import { syncFilesFromSandbox } from '../actions/fileSyncer';
+import { logStructured } from '../../utils/structuredLogger';
 
 const FIVE_MINUTES      = 5 * 60 * 1000;
 const VALIDATION_COMMANDS = [
@@ -18,6 +19,12 @@ export async function generateOrchestrator(
   input: GenerateOrchestratorInput
 ): Promise<GenerateOrchestratorResult> {
   const { projectId, userId, files, descriptions } = input;
+  logStructured('backend/src/services/orchestrators/generateOrchestrator.ts', 'generateOrchestrator.start', {
+    projectId,
+    userId,
+    fileCount: files.length,
+    descriptionCount: descriptions.length
+  });
 
   const sandbox = await Sandbox.create({
     timeoutMs: 360_000
@@ -26,6 +33,10 @@ export async function generateOrchestrator(
   try {
     for (const file of files) {
       await sandbox.files.write(file.path, file.content);
+      logStructured('backend/src/services/orchestrators/generateOrchestrator.ts', 'generateOrchestrator.sandbox.writeFile', {
+        path: file.path,
+        content: file.content
+      });
     }
 
     const startTime     = Date.now();
@@ -35,8 +46,14 @@ export async function generateOrchestrator(
     let currentFiles: FileItem[]      = [...files];
     let lastErrors:   CleanedError[]  = [];
     let previousLog:  ActionLogItem[] = [];
+    let validationCycle = 0;
 
     while (isRunning && timeRemaining() > 0) {
+      validationCycle += 1;
+      logStructured('backend/src/services/orchestrators/generateOrchestrator.ts', 'generateOrchestrator.validation.cycle.start', {
+        validationCycle,
+        msRemaining: timeRemaining()
+      });
       sendToClient(userId, {
         projectId,
         type:   'build',
@@ -47,6 +64,11 @@ export async function generateOrchestrator(
 
       for (const cmd of VALIDATION_COMMANDS) {
         const result = await commandRunner(sandbox, cmd);
+        logStructured('backend/src/services/orchestrators/generateOrchestrator.ts', 'generateOrchestrator.validation.command.result', {
+          validationCycle,
+          command: cmd,
+          result
+        });
         if (result.exitCode !== 0) {
           validationErrors.push({
             command: cmd,
@@ -57,12 +79,19 @@ export async function generateOrchestrator(
       }
 
       if (validationErrors.length === 0) {
+        logStructured('backend/src/services/orchestrators/generateOrchestrator.ts', 'generateOrchestrator.validation.cycle.passed', {
+          validationCycle
+        });
         isRunning  = false;
         lastErrors = [];
         break;
       }
 
       lastErrors = validationErrors;
+      logStructured('backend/src/services/orchestrators/generateOrchestrator.ts', 'generateOrchestrator.validation.cycle.failed', {
+        validationCycle,
+        validationErrors
+      });
 
       let currentErrors: CleanedError[] = [...validationErrors];
 
@@ -128,6 +157,11 @@ export async function generateOrchestrator(
       type:   'build',
       status: passed ? 'Validation passed' : 'Validation timed out'
     });
+    logStructured('backend/src/services/orchestrators/generateOrchestrator.ts', 'generateOrchestrator.complete', {
+      success: passed,
+      lastErrors,
+      fileCount: currentFiles.length
+    });
 
     return {
       success: passed,
@@ -138,7 +172,9 @@ export async function generateOrchestrator(
   } finally {
     try {
       await sandbox.kill();
+      logStructured('backend/src/services/orchestrators/generateOrchestrator.ts', 'generateOrchestrator.sandbox.killed');
     } catch (killErr) {
+      logStructured('backend/src/services/orchestrators/generateOrchestrator.ts', 'generateOrchestrator.sandbox.killError', killErr, 'ERROR');
       console.error('Failed to kill generate sandbox:', killErr);
     }
   }

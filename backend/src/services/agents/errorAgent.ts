@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import { TECH_STACK, safeParseJSON } from '../../utils/promptTemplates';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
+const MODEL_NAME = 'gemini-2.5-flash';
 
 const SYSTEM_PROMPT = `
 You are a senior engineer debugging and fixing errors in a full-stack web application.
@@ -60,10 +61,7 @@ export async function errorAgent(input: {
   const fileContents = currentFiles.map(f =>
     `=== ${f.path} ===\n${f.content}`
   ).join('\n\n');
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `
+  const contents = `
 Current errors:
 ${JSON.stringify(errors, null, 2)}
 
@@ -77,7 +75,10 @@ Current file contents:
 ${fileContents}
 
 Take ONE action to fix these errors.
-`,
+`;
+  const response = await ai.models.generateContent({
+    model: MODEL_NAME,
+    contents,
     config: {
       systemInstruction: SYSTEM_PROMPT,
     }

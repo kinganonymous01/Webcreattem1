@@ -1,7 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
 import { TECH_STACK, safeParseJSON } from '../../utils/promptTemplates';
+import { logRawModelOutput, logStructured } from '../../utils/structuredLogger';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
+const MODEL_NAME = 'gemini-2.5-flash';
 
 const SYSTEM_PROMPT = `
 You are a software architect planning the file structure for a full-stack web application.
@@ -53,14 +55,19 @@ Additional rules (supplementing the ABSOLUTE STRUCTURE RULE above):
 export async function plannerAgent(
   prompt: string
 ): Promise<PlannerResult> {
+  const contents = `Create a project plan for: ${prompt}`;
+
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `Create a project plan for: ${prompt}`,
+    model: MODEL_NAME,
+    contents,
     config: {
       systemInstruction: SYSTEM_PROMPT,
     }
   });
 
   const raw = response.text || '';
-  return safeParseJSON<PlannerResult>(raw);
+  logRawModelOutput('backend/src/services/agents/plannerAgent.ts', MODEL_NAME, raw);
+  const parsed = safeParseJSON<PlannerResult>(raw);
+  logStructured('backend/src/services/agents/plannerAgent.ts', 'plannerAgent.output', parsed);
+  return parsed;
 }

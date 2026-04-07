@@ -1,7 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
 import { TECH_STACK, stripMarkdownFences } from '../../utils/promptTemplates';
+import { logRawModelOutput, logStructured } from '../../utils/structuredLogger';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
+const MODEL_NAME = 'gemini-2.5-flash';
 
 const SYSTEM_PROMPT = `
 You are an expert full-stack engineer. Write complete, production-ready code files.
@@ -42,20 +44,27 @@ export async function codeGeneratorAgent(
   filePrompt: string,
   filePath:   string
 ): Promise<string> {
+  const contents = `Write the complete contents of: ${filePath}\n\n${filePrompt}`;
+
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `Write the complete contents of: ${filePath}\n\n${filePrompt}`,
+    model: MODEL_NAME,
+    contents,
     config: {
       systemInstruction: SYSTEM_PROMPT,
     }
   });
 
   const raw  = response.text || '';
+  logRawModelOutput('backend/src/services/agents/codeGeneratorAgent.ts', MODEL_NAME, raw);
   const code = stripMarkdownFences(raw);
 
   if (!code.trim()) {
     throw new Error(`codeGeneratorAgent returned empty content for ${filePath}`);
   }
 
+  logStructured('backend/src/services/agents/codeGeneratorAgent.ts', 'codeGeneratorAgent.output', {
+    filePath,
+    code
+  });
   return code;
 }

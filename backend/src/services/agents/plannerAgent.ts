@@ -56,11 +56,6 @@ export async function plannerAgent(
   prompt: string
 ): Promise<PlannerResult> {
   const contents = `Create a project plan for: ${prompt}`;
-  logStructured('backend/src/services/agents/plannerAgent.ts', 'plannerAgent.request', {
-    model: MODEL_NAME,
-    prompt,
-    contents
-  });
 
   const response = await ai.models.generateContent({
     model: MODEL_NAME,
@@ -73,6 +68,6 @@ export async function plannerAgent(
   const raw = response.text || '';
   logRawModelOutput('backend/src/services/agents/plannerAgent.ts', MODEL_NAME, raw);
   const parsed = safeParseJSON<PlannerResult>(raw);
-  logStructured('backend/src/services/agents/plannerAgent.ts', 'plannerAgent.response.parsed', parsed);
+  logStructured('backend/src/services/agents/plannerAgent.ts', 'plannerAgent.output', parsed);
   return parsed;
 }

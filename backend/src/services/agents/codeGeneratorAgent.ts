@@ -45,12 +45,6 @@ export async function codeGeneratorAgent(
   filePath:   string
 ): Promise<string> {
   const contents = `Write the complete contents of: ${filePath}\n\n${filePrompt}`;
-  logStructured('backend/src/services/agents/codeGeneratorAgent.ts', 'codeGeneratorAgent.request', {
-    model: MODEL_NAME,
-    filePath,
-    filePrompt,
-    contents
-  });
 
   const response = await ai.models.generateContent({
     model: MODEL_NAME,
@@ -68,7 +62,7 @@ export async function codeGeneratorAgent(
     throw new Error(`codeGeneratorAgent returned empty content for ${filePath}`);
   }
 
-  logStructured('backend/src/services/agents/codeGeneratorAgent.ts', 'codeGeneratorAgent.response.code', {
+  logStructured('backend/src/services/agents/codeGeneratorAgent.ts', 'codeGeneratorAgent.output', {
     filePath,
     code
   });

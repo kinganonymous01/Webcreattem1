@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { TECH_STACK, safeParseJSON } from '../../utils/promptTemplates';
+import { retryGeminiCall } from '../../utils/aiRetry';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
 const MODEL_NAME = 'gemini-2.5-flash';
@@ -76,13 +77,16 @@ ${fileContents}
 
 Take ONE action to fix these errors.
 `;
-  const response = await ai.models.generateContent({
-    model: MODEL_NAME,
-    contents,
-    config: {
-      systemInstruction: SYSTEM_PROMPT,
-    }
-  });
+  const response = await retryGeminiCall(
+    'errorAgent',
+    () => ai.models.generateContent({
+      model: MODEL_NAME,
+      contents,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+      }
+    })
+  );
 
   const raw = response.text || '';
   return safeParseJSON<AgentResponse>(raw);

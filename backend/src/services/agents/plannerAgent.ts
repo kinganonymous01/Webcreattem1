@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { TECH_STACK, safeParseJSON } from '../../utils/promptTemplates';
 import { logRawModelOutput, logStructured } from '../../utils/structuredLogger';
+import { retryGeminiCall } from '../../utils/aiRetry';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
 const MODEL_NAME = 'gemini-2.5-flash';
@@ -57,13 +58,16 @@ export async function plannerAgent(
 ): Promise<PlannerResult> {
   const contents = `Create a project plan for: ${prompt}`;
 
-  const response = await ai.models.generateContent({
-    model: MODEL_NAME,
-    contents,
-    config: {
-      systemInstruction: SYSTEM_PROMPT,
-    }
-  });
+  const response = await retryGeminiCall(
+    'plannerAgent',
+    () => ai.models.generateContent({
+      model: MODEL_NAME,
+      contents,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+      }
+    })
+  );
 
   const raw = response.text || '';
   logRawModelOutput('backend/src/services/agents/plannerAgent.ts', MODEL_NAME, raw);

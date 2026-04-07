@@ -1,6 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
 import { TECH_STACK, safeParseJSON } from '../../utils/promptTemplates';
-import { logRawModelOutput, logStructured } from '../../utils/structuredLogger';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
 const MODEL_NAME = 'gemini-2.5-flash';
@@ -77,12 +76,6 @@ ${fileContents}
 
 Take ONE action to fix these errors.
 `;
-  logStructured('backend/src/services/agents/errorAgent.ts', 'errorAgent.request', {
-    model: MODEL_NAME,
-    input,
-    contents
-  });
-
   const response = await ai.models.generateContent({
     model: MODEL_NAME,
     contents,
@@ -92,8 +85,5 @@ Take ONE action to fix these errors.
   });
 
   const raw = response.text || '';
-  logRawModelOutput('backend/src/services/agents/errorAgent.ts', MODEL_NAME, raw);
-  const parsed = safeParseJSON<AgentResponse>(raw);
-  logStructured('backend/src/services/agents/errorAgent.ts', 'errorAgent.response.parsed', parsed);
-  return parsed;
+  return safeParseJSON<AgentResponse>(raw);
 }

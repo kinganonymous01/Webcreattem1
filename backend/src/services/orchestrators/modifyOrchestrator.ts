@@ -112,7 +112,7 @@ export async function modifyOrchestrator(
         validationErrors.push({
           command: cmd,
           side:    cmd.includes('frontend') ? 'frontend' : 'backend',
-          error:   result.stderr || result.stdout
+          error:   result.stdout || result.stderr
         });
       }
     }

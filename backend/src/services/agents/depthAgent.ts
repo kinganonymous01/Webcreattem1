@@ -49,7 +49,7 @@ JSON shape:
         "exports": ["sql", "initDB"],
         "props": [],
         "connects_to": ["All files that need database access"],
-        "explanation": "Creates sql = neon(process.env.DATABASE_URL). initDB() runs CREATE TABLE IF NOT EXISTS for all tables."
+        "explanation": "Uses explicit TypeScript env narrowing: const databaseUrl = process.env.DATABASE_URL; if (!databaseUrl) throw new Error('DATABASE_URL is required'); const sql = neon(databaseUrl). If this method is not suitable for a specific file, choose another safe narrowing strategy. initDB() runs CREATE TABLE IF NOT EXISTS for all tables."
       }
     },
     ...

@@ -32,12 +32,19 @@ For frontend/package.json: prompt MUST specify "dev": "vite" and "build": "tsc &
 
 Each prompt MUST:
 - Specify all imports explicitly (correct package names — bcryptjs not bcrypt, etc.)
+- For local TypeScript source imports, always use extensionless paths.
+  Examples: use './App' not './App.tsx', use './app' not './app.ts', use './config/db' not './config/db.ts'.
 - Describe every function, its inputs, outputs, and logic
 - Mention all WebContainers-compatible constraints
 - Include error handling patterns
 - Reference connected files by path
 - For frontend: specify using relative /api/... paths only (never localhost)
 - For vite.config.ts: specify the /api proxy rule explicitly
+- For ALL environment variables in TypeScript, instruct the code generator to use this default narrowing method first:
+  1) assign env value to a local const,
+  2) guard with an explicit runtime check,
+  3) use the narrowed value.
+  If and only if this method does not fit the file context, the code generator may use another safe narrowing strategy.
 
 Return ONLY a JSON object. No markdown, no code fences.
 

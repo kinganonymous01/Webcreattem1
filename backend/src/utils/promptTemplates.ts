@@ -33,7 +33,14 @@ CRITICAL WEBCONTAINERS CONSTRAINTS — READ EVERY RULE:
 1. DATABASE:
    - ALWAYS use @neondatabase/serverless for all database access.
    - Import:     import { neon } from '@neondatabase/serverless'
-   - Initialize: const sql = neon(process.env.DATABASE_URL)
+   - DEFAULT TYPE-NARROWING METHOD (use this first): assign env vars to a local const, then guard with an explicit runtime check that throws if missing.
+     Example:
+       const databaseUrl = process.env.DATABASE_URL;
+       if (!databaseUrl) {
+         throw new Error('DATABASE_URL is required');
+       }
+       const sql = neon(databaseUrl);
+   - If this default method does not fit a specific file context, you may choose another safe TypeScript narrowing strategy (type guard/helper/assertion) at your discretion.
    - Write ALL queries using tagged template literals:
        sql\`SELECT * FROM table WHERE id = \${id}\`
    - NEVER call sql as a function: sql("SELECT...") bypasses parameterization.
@@ -97,7 +104,9 @@ CRITICAL WEBCONTAINERS CONSTRAINTS — READ EVERY RULE:
 8. DATABASE INITIALIZATION:
    Backend must create tables on startup using CREATE TABLE IF NOT EXISTS.
    Example db.ts pattern:
-     const sql = neon(process.env.DATABASE_URL)
+     const databaseUrl = process.env.DATABASE_URL
+     if (!databaseUrl) throw new Error('DATABASE_URL is required')
+     const sql = neon(databaseUrl)
      export async function initDB() {
        await sql\`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, ...)\`
      }
@@ -135,6 +144,19 @@ CRITICAL WEBCONTAINERS CONSTRAINTS — READ EVERY RULE:
     The build validation system runs 'npm run build' and 'npm run dev' verbatim.
     Using any other script names (e.g. 'start', 'serve', 'compile') means the
     validation commands fail with exit code 1 and the build times out in 5 minutes.
+
+12. TYPESCRIPT ENV + IMPORT SAFETY:
+    - For ALL environment variables in TypeScript, use the DEFAULT TYPE-NARROWING METHOD first:
+      1) assign process.env value to a local const
+      2) guard with an explicit runtime check
+      3) use the narrowed value
+    - If and only if that method is not suitable for a specific file, choose another safe narrowing method intelligently.
+    - For local TypeScript source imports, NEVER include .ts/.tsx extensions.
+      Examples:
+      - Use: import App from './App'
+      - Never: import App from './App.tsx'
+      - Use: import app from './app'
+      - Never: import app from './app.ts'
 
 ════════════════════════════════════════════════════════════════
 ABSOLUTE STRUCTURE RULE — APPLIES TO ALL GENERATED APPLICATIONS:

@@ -3,10 +3,12 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { userExistsByUsername, createUser, findUserByUsername } from '../models/User';
 
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure:   true,
-  sameSite: 'none' as const,
+  secure:   IS_PRODUCTION,
+  sameSite: (IS_PRODUCTION ? 'none' : 'lax') as 'none' | 'lax',
   maxAge:   7 * 24 * 60 * 60 * 1000
 };
 

@@ -1,4 +1,10 @@
 import { neon } from '@neondatabase/serverless';
+import { ProxyAgent, setGlobalDispatcher } from 'undici';
+
+const httpsProxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+if (httpsProxy) {
+  setGlobalDispatcher(new ProxyAgent(httpsProxy));
+}
 
 export const sql = neon(process.env.NEON_DATABASE_URL!);
 

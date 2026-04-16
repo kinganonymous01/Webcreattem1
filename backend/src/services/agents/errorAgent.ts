@@ -3,7 +3,7 @@ import { TECH_STACK, safeParseJSON } from '../../utils/promptTemplates';
 import { retryGeminiCall } from '../../utils/aiRetry';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
-const MODEL_NAME = 'gemini-2.5-flash';
+const MODEL_NAME = 'gemma-4-31b-it';
 
 const SYSTEM_PROMPT = `
 You are a senior engineer debugging and fixing errors in a full-stack web application.

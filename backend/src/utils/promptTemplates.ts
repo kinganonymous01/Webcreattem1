@@ -25,12 +25,12 @@ You are generating a full-stack web application that will run inside StackBlitz 
 MANDATORY TECH STACK:
 - Backend:  Node.js + Express.js (CommonJS)
 - Frontend: React + Vite (separate frontend/ folder)
-- Database: Neon DB (PostgreSQL) via @neondatabase/serverless (HTTP-based, no TCP)
-- Auth:     bcryptjs + JWT cookies
+- Database(only if requested by the user in the prompt): Neon DB (PostgreSQL) via @neondatabase/serverless (HTTP-based, no TCP)
+- Auth(only if requested by the user in the prompt):     bcryptjs + JWT cookies
 
 CRITICAL WEBCONTAINERS CONSTRAINTS — READ EVERY RULE:
 
-1. DATABASE:
+1. DATABASE(only if a databases requested by the user in the website build prompt):
    - ALWAYS use @neondatabase/serverless for all database access.
    - Import:     import { neon } from '@neondatabase/serverless'
    - DEFAULT TYPE-NARROWING METHOD (use this first): assign env vars to a local const, then guard with an explicit runtime check that throws if missing.
@@ -94,14 +94,14 @@ CRITICAL WEBCONTAINERS CONSTRAINTS — READ EVERY RULE:
 7. ENVIRONMENT VARIABLES — GENERATE A REAL .env FILE:
    The backend MUST have a backend/.env file (NOT .env.example).
    This file MUST contain:
-     DATABASE_URL=postgresql://dummy:dummy@dummy.neon.tech/dummy?sslmode=require
+     DATABASE_URL=postgresql://dummy:dummy@dummy.neon.tech/dummy?sslmode=require(if the user instead provides a real neondb url in the website build prompt replace this dummy url with the actual user provided url)
      JWT_SECRET=preview_secret_key_change_in_production
    The backend package.json MUST include dotenv as a dependency.
    server.ts or app.ts MUST call require('dotenv').config() or import 'dotenv/config'
    at the very top before any other imports.
    Without .env, DATABASE_URL is undefined, neon() throws, app crashes.
 
-8. DATABASE INITIALIZATION:
+8. DATABASE INITIALIZATION(only if a database is requested by the user in the website build prompt):
    Backend must create tables on startup using CREATE TABLE IF NOT EXISTS.
    Example db.ts pattern:
      const databaseUrl = process.env.DATABASE_URL
@@ -116,9 +116,9 @@ CRITICAL WEBCONTAINERS CONSTRAINTS — READ EVERY RULE:
    The WebContainer filesystem is ephemeral and in-memory.
    All persistent storage must go through Neon DB or Upstash Redis.
 
-10. DATABASE INITIALIZATION MUST BE FAULT-TOLERANT:
-    The generated app runs in WebContainers preview with a DUMMY DATABASE_URL.
-    The dummy URL will fail to connect — this is expected during preview.
+10. DATABASE INITIALIZATION MUST BE FAULT-TOLERANT(only if a database is requested by the user in the website build prompt):
+    If the user doesnt provide a Neondb database url in the website build prompt the generated app runs in WebContainers preview with a DUMMY DATABASE_URL.
+    The dummy URL will fail to connect — this is expected for the case where user does not provide a real Neondb database url.
     NEVER let DB initialization failure crash the entire server.
     ALWAYS wrap initDB() in a try/catch in server.ts:
 
@@ -179,8 +179,7 @@ Generate a minimal Express backend that does nothing except:
   - Serve GET / returning { message: 'ok' }
   - Export a valid Express app
 It must still have: backend/package.json (with "dev" and "build" scripts),
-backend/tsconfig.json, backend/.env, backend/src/server.ts, backend/src/app.ts,
-backend/src/config/db.ts (with try/catch-wrapped initDB).
+backend/tsconfig.json, backend/.env, backend/src/server.ts, backend/src/app.ts.
 This minimal backend compiles cleanly and passes npm run build. That is all that matters.
 ════════════════════════════════════════════════════════════════
 

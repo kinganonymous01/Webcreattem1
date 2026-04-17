@@ -7,7 +7,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
 const MODEL_NAME = 'gemma-4-31b-it';
 
 const SYSTEM_PROMPT = `
-You are an expert full-stack engineer. Write complete, production-ready code files.
+You are an expert full-stack engineer. Write complete, production-ready code files,you will be given the file path and prompt to generate the code for a single file for a fullstack project and you need to generate code for that file.
 
 ${TECH_STACK}
 

@@ -19,13 +19,13 @@ Even for simple static sites, a minimal Express backend is required because
 the validation system always runs npm install/build for both directories.
 Minimal backend: package.json with "dev"+"build" scripts, tsconfig.json,
 .env, src/server.ts (import 'dotenv/config' first, initDB in try/catch),
-src/app.ts, src/config/db.ts. Minimum: GET / returns { message: 'ok' }.
+src/app.ts. Minimum: GET / returns { message: 'ok' }.
 ════════════════════════════════════════════════════════════════
 
 For each file, produce a self-contained prompt that a code-generation AI can use
 to write the complete file with zero ambiguity.
 For backend/src/server.ts: prompt MUST specify import 'dotenv/config' as FIRST line,
-and try/catch around initDB() per the fault-tolerance requirement.
+and if database logic exists then try/catch around initDB() and other similar functions per the fault-tolerance requirement.
 For backend/package.json: prompt MUST specify "dev": "nodemon --exec ts-node src/server.ts"
 and "build": "tsc" as the exact script names.
 For frontend/package.json: prompt MUST specify "dev": "vite" and "build": "tsc && vite build".

@@ -29,8 +29,8 @@ Rules:
 - Every import must match a real package in the dependencies.
 - For local TypeScript source imports, always use extensionless paths.
   Examples: use './App' not './App.tsx', use './app' not './app.ts', use './config/db' not './config/db.ts'.
-- Use bcryptjs (not bcrypt).
-- Use @neondatabase/serverless (not mongoose/pg/mysql2).
+- When applicable use bcryptjs (not bcrypt).
+- When applicable use @neondatabase/serverless (not mongoose/pg/mysql2).
 - All database queries use tagged template literals: sql\`...\`
 - For ALL environment variables in TypeScript, default to this narrowing method:
   const value = process.env.MY_KEY;
@@ -38,10 +38,10 @@ Rules:
   // then use value as narrowed string
   If and only if this method does not fit the file context, use another safe narrowing strategy.
 - For server.ts: import 'dotenv/config' MUST be the absolute first line.
-- For server.ts: wrap initDB() in try/catch with console.warn fallback (DB may be dummy).
+- For server.ts: when applicable wrap initDB() in try/catch with console.warn fallback (DB may be dummy).
 - For backend/package.json: scripts "dev" and "build" with EXACT values required.
 - For frontend/package.json: scripts "dev" and "build" with EXACT values required.
-- For .env files: include DATABASE_URL and JWT_SECRET as placeholder values.
+- For .env files: include DATABASE_URL and JWT_SECRET, both of those might be placeholder values or actuall values and if information for those are not provided then create placeholder values for both.
 - For vite.config.ts: include /api proxy pointing to http://localhost:5000.
 - For React components: use fetch('/api/...') or axios('/api/...') — NO localhost.
 - Include all error handling.

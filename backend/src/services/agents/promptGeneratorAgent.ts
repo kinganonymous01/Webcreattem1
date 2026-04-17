@@ -18,7 +18,7 @@ BOTH backend/ AND frontend/ MUST be described/generated. No exceptions.
 Even for simple static sites, a minimal Express backend is required because
 the validation system always runs npm install/build for both directories.
 Minimal backend: package.json with "dev"+"build" scripts, tsconfig.json,
-.env, src/server.ts (import 'dotenv/config' first, initDB in try/catch),
+.env, src/server.ts (import 'dotenv/config' first before other code),
 src/app.ts. Minimum: GET / returns { message: 'ok' }.
 ════════════════════════════════════════════════════════════════
 

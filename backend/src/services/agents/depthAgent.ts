@@ -32,6 +32,7 @@ WEBCONTAINERS CONSTRAINTS — APPLY TO ALL FILES:
 - Any file that would import a forbidden package must use the WebContainers-compatible alternative.
 - backend/.env file MUST be described and generated with DATABASE_URL + JWT_SECRET.
 - frontend/vite.config.ts MUST include the /api proxy to localhost:5000.
+- Make sure the detailed filedescription objects are written for all the files keeping in mind that they should not fail tsc as that is the most important goal.
 - All frontend API calls MUST use relative paths (/api/...).
 
 Return ONLY a JSON object. No markdown, no code fences.

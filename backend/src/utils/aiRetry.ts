@@ -47,26 +47,8 @@ function getStatusCode(error: unknown): number | undefined {
   return undefined;
 }
 
-function isRetriableGeminiError(error: unknown): boolean {
-  const statusCode = getStatusCode(error);
-  if (statusCode === 429 || statusCode === 503 || (statusCode !== undefined && statusCode >= 500)) {
-    return true;
-  }
-
-  const message = getErrorMessage(error).toLowerCase();
-  if (!message) {
-    return false;
-  }
-
-  return (
-    message.includes('503') ||
-    message.includes('high demand') ||
-    message.includes('model is overloaded') ||
-    message.includes('model unavailable') ||
-    message.includes('resource exhausted') ||
-    message.includes('temporarily unavailable') ||
-    message.includes('try again')
-  );
+function isRetriableGeminiError(_error: unknown): boolean {
+  return true;
 }
 
 function getRetryDelay(attempt: number): number {

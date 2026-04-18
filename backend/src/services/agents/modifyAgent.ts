@@ -4,7 +4,7 @@ import { logRawModelOutput, logStructured } from '../../utils/structuredLogger';
 import { retryGeminiCall } from '../../utils/aiRetry';
 
 const ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
-const MODEL_NAME = 'gemini-2.5-flash';
+const MODEL_NAME = 'gemma-4-31b-it';
 
 const SYSTEM_PROMPT = `
 You are a senior engineer implementing user-requested changes to a full-stack web application.

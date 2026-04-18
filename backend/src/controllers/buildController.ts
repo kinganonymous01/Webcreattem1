@@ -16,7 +16,6 @@ const REQUIRED_CORE_FILES = [
   'backend/.env',
   'backend/src/server.ts',
   'backend/src/app.ts',
-  'backend/src/config/db.ts',
   'frontend/package.json',
   'frontend/tsconfig.json',
   'frontend/vite.config.ts',

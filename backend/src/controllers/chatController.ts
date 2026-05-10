@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import crypto from 'crypto';
 import { sendToClient } from '../utils/wsClients';
 import { chatSummarizerAgent } from '../services/agents/chatSummarizerAgent';
+import { replyGenerationAgent } from '../services/agents/replyGenerationAgent';
 import { modifyOrchestrator } from '../services/orchestrators/modifyOrchestrator';
 import { getProjectById, updateProjectChatHistory, updateProjectFilesAndHistory } from '../models/Project';
 
@@ -41,10 +42,18 @@ export async function chat(req: Request, res: Response): Promise<any> {
     });
 
     if (summaryResult.type === 'question') {
+      sendToClient(userId, { projectId, type: 'chat', status: 'Generating reply...' });
+
+      const reply = await replyGenerationAgent({
+        chatHistory,
+        currentMessage: originalMessage,
+        instruction:    summaryResult.instruction
+      });
+
       const updatedHistory = [
         ...project.chat_history,
-        { role: 'user',      message: originalMessage,          timestamp: new Date() },
-        { role: 'assistant', message: summaryResult.instruction, timestamp: new Date() }
+        { role: 'user',      message: originalMessage, timestamp: new Date() },
+        { role: 'assistant', message: reply,            timestamp: new Date() }
       ];
 
       try {
@@ -56,7 +65,7 @@ export async function chat(req: Request, res: Response): Promise<any> {
       return res.status(200).json({
         type:    'question',
         files:   [],
-        message: summaryResult.instruction
+        message: reply
       });
     }
 

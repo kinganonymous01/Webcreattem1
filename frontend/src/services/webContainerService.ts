@@ -1,9 +1,35 @@
 import { WebContainer } from '@webcontainer/api';
 
 let webcontainerInstance: WebContainer | null = null;
+let bootPromise:          Promise<WebContainer> | null = null;
 let devProcess:           any                 = null;
 let backendProcess:       any                 = null;
 let previewUrl:           string | null       = null;
+
+type PrerequisiteStatus = PreviewPrerequisite['status'];
+type PrerequisiteReporter = (step: PreviewPrerequisite) => void;
+
+const PREREQUISITES: Omit<PreviewPrerequisite, 'status'>[] = [
+  { id: 'mount-files',       label: 'Mount generated files' },
+  { id: 'backend-install',   label: 'Install backend dependencies (npm install)' },
+  { id: 'backend-dev',       label: 'Start backend dev server (npm run dev)' },
+  { id: 'frontend-install',  label: 'Install frontend dependencies (npm install)' },
+  { id: 'frontend-dev',      label: 'Start frontend dev server (npm run dev)' },
+  { id: 'preview-ready',     label: 'Wait for preview server' }
+];
+
+export function getPrerequisiteTemplate(): PreviewPrerequisite[] {
+  return PREREQUISITES.map(step => ({ ...step, status: 'pending' }));
+}
+
+function reportStep(
+  onStep: PrerequisiteReporter | undefined,
+  id: string,
+  status: PrerequisiteStatus
+): void {
+  const step = PREREQUISITES.find(item => item.id === id);
+  if (step) onStep?.({ ...step, status });
+}
 
 function buildMountStructure(files: FileItem[]): object {
   const root: any = {};
@@ -21,65 +47,44 @@ function buildMountStructure(files: FileItem[]): object {
   return root;
 }
 
-export async function startContainer(files: FileItem[]): Promise<string> {
-  if (webcontainerInstance !== null && previewUrl !== null) {
-    return previewUrl;
+export async function bootContainer(): Promise<WebContainer> {
+  if (webcontainerInstance) return webcontainerInstance;
+  if (!bootPromise) {
+    bootPromise = WebContainer.boot().then(instance => {
+      webcontainerInstance = instance;
+      return instance;
+    }).catch(err => {
+      bootPromise = null;
+      throw err;
+    });
   }
+  return bootPromise;
+}
 
-  if (webcontainerInstance !== null && previewUrl === null) {
-    const stale = webcontainerInstance;
-    webcontainerInstance = null;
-    devProcess           = null;
-    backendProcess       = null;
-    try {
-      stale.teardown();
-    } catch (teardownErr) {
-      console.error('Failed to teardown stale WebContainer:', teardownErr);
-    }
-  }
-
-  webcontainerInstance = await WebContainer.boot();
-
-  const mountStructure = buildMountStructure(files);
-  await webcontainerInstance.mount(mountStructure as any);
-
-  const backendInstall = await webcontainerInstance.spawn('npm', ['install'], {
-    cwd: '/backend'
-  });
-  const backendInstallExit = await backendInstall.exit;
-  if (backendInstallExit !== 0) {
-    throw new Error('Backend npm install failed');
-  }
-
-  backendProcess = await webcontainerInstance.spawn('npm', ['run', 'dev'], {
-    cwd: '/backend'
-  });
-  backendProcess.output.pipeTo(new WritableStream({
-    write(data) { console.log('[backend]', data); }
+async function runProcess(
+  command: string,
+  args: string[],
+  cwd: string,
+  logPrefix: string
+): Promise<any> {
+  const instance = await bootContainer();
+  const proc = await instance.spawn(command, args, { cwd });
+  proc.output.pipeTo(new WritableStream({
+    write(data) { console.log(`[${logPrefix}]`, data); }
   }));
+  return proc;
+}
 
-  const frontendInstall = await webcontainerInstance.spawn('npm', ['install'], {
-    cwd: '/frontend'
-  });
-  const frontendInstallExit = await frontendInstall.exit;
-  if (frontendInstallExit !== 0) {
-    throw new Error('Frontend npm install failed');
-  }
+async function waitForPreview(): Promise<string> {
+  const instance = await bootContainer();
 
-  devProcess = await webcontainerInstance.spawn('npm', ['run', 'dev'], {
-    cwd: '/frontend'
-  });
-  devProcess.output.pipeTo(new WritableStream({
-    write(data) { console.log('[frontend]', data); }
-  }));
-
-  const url = await new Promise<string>((resolve, reject) => {
+  return new Promise<string>((resolve, reject) => {
     const timeout = setTimeout(() => {
       unsubscribe();
       reject(new Error('WebContainer server-ready timeout after 30s'));
     }, 30_000);
 
-    const unsubscribe = webcontainerInstance!.on('server-ready', (port, serverUrl) => {
+    const unsubscribe = instance.on('server-ready', (port, serverUrl) => {
       if (port === 5173) {
         clearTimeout(timeout);
         unsubscribe();
@@ -87,14 +92,75 @@ export async function startContainer(files: FileItem[]): Promise<string> {
       }
     });
   });
+}
+
+export async function startContainer(
+  files: FileItem[],
+  onStep?: PrerequisiteReporter
+): Promise<string> {
+  if (files.length === 0) {
+    throw new Error('Cannot run WebContainer npm commands before project files exist');
+  }
+
+  if (webcontainerInstance !== null && previewUrl !== null) {
+    return previewUrl;
+  }
+
+  const instance = await bootContainer();
+
+  reportStep(onStep, 'mount-files', 'running');
+  const mountStructure = buildMountStructure(files);
+  await instance.mount(mountStructure as any);
+  reportStep(onStep, 'mount-files', 'complete');
+
+  reportStep(onStep, 'backend-install', 'running');
+  const backendInstall = await instance.spawn('npm', ['install'], {
+    cwd: '/backend'
+  });
+  const backendInstallExit = await backendInstall.exit;
+  if (backendInstallExit !== 0) {
+    reportStep(onStep, 'backend-install', 'error');
+    throw new Error('Backend npm install failed');
+  }
+  reportStep(onStep, 'backend-install', 'complete');
+
+  reportStep(onStep, 'backend-dev', 'running');
+  backendProcess = await runProcess('npm', ['run', 'dev'], '/backend', 'backend');
+  reportStep(onStep, 'backend-dev', 'complete');
+
+  reportStep(onStep, 'frontend-install', 'running');
+  const frontendInstall = await instance.spawn('npm', ['install'], {
+    cwd: '/frontend'
+  });
+  const frontendInstallExit = await frontendInstall.exit;
+  if (frontendInstallExit !== 0) {
+    reportStep(onStep, 'frontend-install', 'error');
+    throw new Error('Frontend npm install failed');
+  }
+  reportStep(onStep, 'frontend-install', 'complete');
+
+  reportStep(onStep, 'frontend-dev', 'running');
+  devProcess = await runProcess('npm', ['run', 'dev'], '/frontend', 'frontend');
+  reportStep(onStep, 'frontend-dev', 'complete');
+
+  reportStep(onStep, 'preview-ready', 'running');
+  const url = await waitForPreview();
+  reportStep(onStep, 'preview-ready', 'complete');
 
   previewUrl = url;
   return url;
 }
 
-export async function restart(files: FileItem[]): Promise<string> {
+export async function restart(
+  files: FileItem[],
+  onStep?: PrerequisiteReporter
+): Promise<string> {
+  if (files.length === 0) {
+    throw new Error('Cannot restart WebContainer before project files exist');
+  }
+
   if (!webcontainerInstance) {
-    return startContainer(files);
+    return startContainer(files, onStep);
   }
 
   if (devProcess) {
@@ -107,48 +173,17 @@ export async function restart(files: FileItem[]): Promise<string> {
     backendProcess = null;
   }
 
-  try {
-    await webcontainerInstance.fs.rm('/frontend/src', { recursive: true });
-  } catch { }
-
-  try {
-    await webcontainerInstance.fs.rm('/backend/src', { recursive: true });
-  } catch { }
-
-  const mountStructure = buildMountStructure(files);
-  await webcontainerInstance.mount(mountStructure as any);
-
-  const backendInstall = await webcontainerInstance.spawn('npm', ['install'], { cwd: '/backend' });
-  await backendInstall.exit;
-
-  backendProcess = await webcontainerInstance.spawn('npm', ['run', 'dev'], { cwd: '/backend' });
-  backendProcess.output.pipeTo(new WritableStream({ write(data) { console.log('[backend]', data); } }));
-
-  const frontendInstall = await webcontainerInstance.spawn('npm', ['install'], { cwd: '/frontend' });
-  await frontendInstall.exit;
-
-  devProcess = await webcontainerInstance.spawn('npm', ['run', 'dev'], { cwd: '/frontend' });
-  devProcess.output.pipeTo(new WritableStream({ write(data) { console.log('[frontend]', data); } }));
-
   previewUrl = null;
 
-  const url = await new Promise<string>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      unsubscribe();
-      reject(new Error('Restart timeout'));
-    }, 30_000);
+  try {
+    await webcontainerInstance.fs.rm('/frontend', { recursive: true });
+  } catch { }
 
-    const unsubscribe = webcontainerInstance!.on('server-ready', (port, serverUrl) => {
-      if (port === 5173) {
-        clearTimeout(timeout);
-        unsubscribe();
-        resolve(serverUrl);
-      }
-    });
-  });
+  try {
+    await webcontainerInstance.fs.rm('/backend', { recursive: true });
+  } catch { }
 
-  previewUrl = url;
-  return url;
+  return startContainer(files, onStep);
 }
 
 export function cleanup(): void {
@@ -157,6 +192,7 @@ export function cleanup(): void {
   const backendProc   = backendProcess;
 
   webcontainerInstance = null;
+  bootPromise          = null;
   devProcess           = null;
   backendProcess       = null;
   previewUrl           = null;

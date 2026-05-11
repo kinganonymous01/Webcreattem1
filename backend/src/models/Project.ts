@@ -20,8 +20,9 @@ export async function createProject(params: {
   descriptions: any;
   structure:    any;
   files:        any;
+  chatHistory?: any;
 }): Promise<ProjectRow> {
-  const { id, userId, projectName, prompt, descriptions, structure, files } = params;
+  const { id, userId, projectName, prompt, descriptions, structure, files, chatHistory = [] } = params;
   const rows = await sql`
     INSERT INTO projects (
       id, user_id, project_name, prompt,
@@ -34,7 +35,7 @@ export async function createProject(params: {
       ${JSON.stringify(descriptions)}::jsonb,
       ${JSON.stringify(structure)}::jsonb,
       ${JSON.stringify(files)}::jsonb,
-      '[]'::jsonb
+      ${JSON.stringify(chatHistory)}::jsonb
     )
     RETURNING *
   `;

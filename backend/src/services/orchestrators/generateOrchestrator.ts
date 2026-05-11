@@ -1,5 +1,4 @@
 import { Sandbox } from 'e2b';
-import { sendToClient } from '../../utils/wsClients';
 import { errorAgent } from '../agents/errorAgent';
 import { commandRunner } from '../actions/commandRunner';
 import { fileUpdater } from '../actions/fileUpdater';
@@ -18,7 +17,7 @@ const VALIDATION_COMMANDS = [
 export async function generateOrchestrator(
   input: GenerateOrchestratorInput
 ): Promise<GenerateOrchestratorResult> {
-  const { projectId, userId, files, descriptions } = input;
+  const { projectId, userId, files, descriptions, onStatus } = input;
   logStructured('backend/src/services/orchestrators/generateOrchestrator.ts', 'generateOrchestrator.start', {
     projectId,
     userId,
@@ -54,11 +53,7 @@ export async function generateOrchestrator(
         validationCycle,
         msRemaining: timeRemaining()
       });
-      sendToClient(userId, {
-        projectId,
-        type:   'build',
-        status: 'Running validation...'
-      });
+      onStatus?.('Running validation...');
 
       const validationErrors: CleanedError[] = [];
 
@@ -96,11 +91,7 @@ export async function generateOrchestrator(
       let currentErrors: CleanedError[] = [...validationErrors];
 
       while (currentErrors.length > 0 && timeRemaining() > 0) {
-        sendToClient(userId, {
-          projectId,
-          type:   'build',
-          status: 'Fixing errors...'
-        });
+        onStatus?.('Fixing errors...');
 
         const agentResponse = await errorAgent({
           currentFiles,
@@ -152,11 +143,7 @@ export async function generateOrchestrator(
       await syncFilesFromSandbox(sandbox, currentFiles);
     }
 
-    sendToClient(userId, {
-      projectId,
-      type:   'build',
-      status: passed ? 'Validation passed' : 'Validation timed out'
-    });
+    onStatus?.(passed ? 'Validation passed' : 'Validation timed out');
     logStructured('backend/src/services/orchestrators/generateOrchestrator.ts', 'generateOrchestrator.complete', {
       success: passed,
       lastErrors,

@@ -83,6 +83,7 @@ declare global {
     files:        FileItem[]
     descriptions: FileDescriptionItem[]
     structure:    FolderStructure
+    onStatus?:    (message: string) => void
   }
 
   interface GenerateOrchestratorResult {
@@ -97,6 +98,7 @@ declare global {
     instruction:  string
     projectId:    string
     userId:       string
+    onStatus?:    (message: string) => void
   }
 
   interface ModifyOrchestratorResult {
@@ -108,9 +110,12 @@ declare global {
   }
 
   interface WSMessage {
-    projectId: string
-    type:      "build" | "chat"
-    status:    string
+    projectId:    string
+    type:         "build" | "chat"
+    status:       string
+    chatMessage?: ChatMessage
+    streamId?:    string
+    final?:       boolean
   }
 
   interface BuildResponse {
@@ -119,6 +124,7 @@ declare global {
     projectName: string
     structure:   FolderStructure
     files:       FileItem[]
+    chatHistory?: ChatMessage[]
     message?:    string
   }
 

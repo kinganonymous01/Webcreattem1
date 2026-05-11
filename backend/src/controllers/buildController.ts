@@ -87,6 +87,29 @@ function ensureDepthCoverage(
   };
 }
 
+
+function streamAssistantUpdate(
+  userId: string,
+  projectId: string,
+  type: 'build' | 'chat',
+  message: string,
+  history: ChatMessage[]
+): void {
+  const chatMessage: ChatMessage = {
+    role: 'assistant',
+    message,
+    timestamp: new Date()
+  };
+
+  history.push(chatMessage);
+  sendToClient(userId, {
+    projectId,
+    type,
+    status: message,
+    chatMessage
+  });
+}
+
 function buildCodeGenerationQueue(
   depthResult: DepthResult,
   promptResult: PromptGeneratorResult
@@ -130,17 +153,15 @@ export async function build(req: Request, res: Response): Promise<any> {
       prompt
     });
 
-    const limit     = pLimit(3);
-    const projectId = crypto.randomUUID();
+    const limit = pLimit(3);
+    const requestedProjectId = typeof req.body.projectId === 'string' ? req.body.projectId : '';
+    const projectId = requestedProjectId.trim() || crypto.randomUUID();
+    const streamHistory: ChatMessage[] = [];
 
-    sendToClient(userId, {
-      projectId,
-      type:   'build',
-      status: 'Build started'
-    });
+    streamAssistantUpdate(userId, projectId, 'build', 'Build started', streamHistory);
 
     try {
-      sendToClient(userId, { projectId, type: 'build', status: 'Planning project structure...' });
+      streamAssistantUpdate(userId, projectId, 'build', 'Planning project structure...', streamHistory);
       const plannerRawResult = await plannerAgent(prompt);
       logStructured('backend/src/controllers/buildController.ts', 'build.planner.rawResult', plannerRawResult);
       const plannerResult = ensureCorePlannerFiles(plannerRawResult);
@@ -155,26 +176,26 @@ export async function build(req: Request, res: Response): Promise<any> {
 
       if (!hasBackend || !hasFrontend) {
         const missing = !hasBackend ? 'backend/' : 'frontend/';
-        sendToClient(userId, { projectId, type: 'build', status: 'Build failed' });
+        streamAssistantUpdate(userId, projectId, 'build', 'Build failed', streamHistory);
         return res.status(500).json({
           success: false,
           message: `Planner did not generate required ${missing} structure. Please try again.`
         });
       }
 
-      sendToClient(userId, { projectId, type: 'build', status: 'Analyzing file requirements...' });
+      streamAssistantUpdate(userId, projectId, 'build', 'Analyzing file requirements...', streamHistory);
       const depthRawResult = await depthAgent(prompt, plannerResult);
       logStructured('backend/src/controllers/buildController.ts', 'build.depth.rawResult', depthRawResult);
       const depthResult = ensureDepthCoverage(plannerResult, depthRawResult);
       logStructured('backend/src/controllers/buildController.ts', 'build.depth.normalizedResult', depthResult);
 
-      sendToClient(userId, { projectId, type: 'build', status: 'Generating code prompts...' });
+      streamAssistantUpdate(userId, projectId, 'build', 'Generating code prompts...', streamHistory);
       const promptResult = await promptGeneratorAgent(prompt, plannerResult, depthResult);
       logStructured('backend/src/controllers/buildController.ts', 'build.promptGenerator.result', promptResult);
       const generationQueue = buildCodeGenerationQueue(depthResult, promptResult);
       logStructured('backend/src/controllers/buildController.ts', 'build.codeGeneration.queue', generationQueue);
 
-      sendToClient(userId, { projectId, type: 'build', status: 'Generating code...' });
+      streamAssistantUpdate(userId, projectId, 'build', 'Generating code...', streamHistory);
       const codeFiles: FileItem[] = await Promise.all(
         generationQueue.map(pf =>
           limit(async () => {
@@ -185,27 +206,32 @@ export async function build(req: Request, res: Response): Promise<any> {
       );
       logStructured('backend/src/controllers/buildController.ts', 'build.codeGeneration.outputFiles', codeFiles);
 
-      sendToClient(userId, { projectId, type: 'build', status: 'Validating and fixing code...' });
+      streamAssistantUpdate(userId, projectId, 'build', 'Validating and fixing code...', streamHistory);
       const orchResult = await generateOrchestrator({
         projectId,
         userId,
         files:        codeFiles,
         descriptions: depthResult.files,
-        structure:    depthResult.structure
+        structure:    depthResult.structure,
+        onStatus:     (message) => streamAssistantUpdate(userId, projectId, 'build', message, streamHistory)
       });
       logStructured('backend/src/controllers/buildController.ts', 'build.validation.orchestratorResult', orchResult);
 
       if (!orchResult.success) {
-        sendToClient(userId, {
+        streamAssistantUpdate(
+          userId,
           projectId,
-          type:   'build',
-          status: 'Build failed — validation could not resolve all errors in time'
-        });
+          'build',
+          'Build failed — validation could not resolve all errors in time',
+          streamHistory
+        );
         return res.status(500).json({
           success: false,
           message: 'Build validation failed. Please try again.'
         });
       }
+
+      streamAssistantUpdate(userId, projectId, 'build', 'Build complete', streamHistory);
 
       await createProject({
         id:           projectId,
@@ -214,23 +240,23 @@ export async function build(req: Request, res: Response): Promise<any> {
         prompt,
         descriptions: depthResult.files,
         structure:    depthResult.structure,
-        files:        orchResult.files
+        files:        orchResult.files,
+        chatHistory:  streamHistory
       });
-
-      sendToClient(userId, { projectId, type: 'build', status: 'Build complete' });
 
       return res.json({
         success:     true,
         projectId,
         projectName: plannerResult.projectName,
         structure:   depthResult.structure,
-        files:       orchResult.files
+        files:       orchResult.files,
+        chatHistory: streamHistory
       });
 
     } catch (innerErr) {
       logStructured('backend/src/controllers/buildController.ts', 'build.innerError', innerErr, 'ERROR');
       console.error('Inner build error:', innerErr);
-      sendToClient(userId, { projectId, type: 'build', status: 'Build failed' });
+      streamAssistantUpdate(userId, projectId, 'build', 'Build failed', streamHistory);
       return res.status(500).json({ success: false, message: 'Build pipeline failed' });
     }
 

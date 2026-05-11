@@ -1,5 +1,4 @@
 import { Sandbox } from 'e2b';
-import { sendToClient } from '../../utils/wsClients';
 import { modifyAgent } from '../agents/modifyAgent';
 import { errorAgent } from '../agents/errorAgent';
 import { commandRunner } from '../actions/commandRunner';
@@ -21,7 +20,7 @@ const VALIDATION_COMMANDS = [
 export async function modifyOrchestrator(
   input: ModifyOrchestratorInput
 ): Promise<ModifyOrchestratorResult> {
-  const { files, descriptions, instruction, projectId, userId } = input;
+  const { files, descriptions, instruction, projectId, userId, onStatus } = input;
   logStructured('backend/src/services/orchestrators/modifyOrchestrator.ts', 'modifyOrchestrator.start', {
     projectId,
     userId,
@@ -105,7 +104,7 @@ export async function modifyOrchestrator(
       }
     }
 
-    sendToClient(userId, { projectId, type: 'chat', status: 'Running validation...' });
+    onStatus?.('Running validation...');
 
     const validationErrors: CleanedError[] = [];
     for (const cmd of VALIDATION_COMMANDS) {
@@ -139,6 +138,7 @@ export async function modifyOrchestrator(
     let modificationPassed = false;
 
     while (!modificationPassed && timeRemaining() > 0) {
+      onStatus?.('Fixing validation errors...');
       const currentSide = lastErrors.some(e => e.side === 'frontend')
         ? (lastErrors.some(e => e.side === 'backend') ? 'both' : 'frontend')
         : 'backend';

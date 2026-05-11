@@ -24,10 +24,16 @@ Respond with ONE action at a time as a JSON object:
 }
 
 Action meanings:
-  "0" = Modification complete (or errors fixed). fixed_status=true means confident.
+  "0" = Modification complete (or requested file/terminal-based answer is complete). fixed_status=true means confident. data = "natural language completion message to show the user"
   "1" = Run a command. data = "command string"
   "2" = Update files. data = [{ "filename": "x.ts", "filepath": "path/to/x.ts", "updated_code": "..." }]
   "3" = Read files. data = [{ "filename": "x.ts", "filepath": "path/to/x.ts" }]
+
+When you choose action "0" with fixed_status=true:
+- The data field MUST be a concise, natural language message for the end user.
+- For a code change, summarize what was changed, for example: "I've updated the theme to red and black."
+- For a project-specific question handled through this agent, answer the user's question directly, for example: "backend/src/server.ts contains 42 lines."
+- Do NOT put an empty string in data when fixed_status=true.
 
 
 ════════════════════════════════════════════════════════════════

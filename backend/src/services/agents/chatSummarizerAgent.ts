@@ -15,10 +15,17 @@ Given chat history and a current user message, return a JSON object:
   "instruction": "string — clear, actionable instruction"
 }
 
-"question" = user wants information, explanation, or clarification. No code changes needed.
-"modification" = user wants the application code to be changed.
+"question" = user wants information, explanation, or clarification that can be answered from general knowledge, the provided chat history, or straightforward reasoning. No code changes, file access, or terminal commands are needed.
+"modification" = user wants the application code to be changed OR the user asks for information that requires project file access, code inspection, filesystem access, dependency inspection, terminal commands, build output, logs, or any other project-specific runtime/sandbox access.
 
-For "modification", distill the instruction to be specific and actionable for an engineer.
+Important classification examples:
+- "What is 2 times 2?" => question
+- "Explain what React state is" => question
+- "How many lines are in server.ts?" => modification, because answering requires reading a project file
+- "What files import App.tsx?" => modification, because answering requires project file inspection
+- "Run the tests" => modification, because answering requires terminal access
+
+For "modification", distill the instruction to be specific and actionable for an engineer/agent with file and terminal access.
 Return ONLY raw JSON. No markdown, no code fences.
 `;
 

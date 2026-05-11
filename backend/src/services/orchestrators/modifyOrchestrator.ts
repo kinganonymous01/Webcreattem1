@@ -8,6 +8,8 @@ import { fileReader } from '../actions/fileReader';
 import { syncFilesFromSandbox } from '../actions/fileSyncer';
 import { logStructured } from '../../utils/structuredLogger';
 
+// updated in 2026
+
 const FIVE_MINUTES      = 5 * 60 * 1000;
 const VALIDATION_COMMANDS = [
   'cd backend && npm install',
@@ -45,8 +47,9 @@ export async function modifyOrchestrator(
     let currentFiles:  FileItem[]      = [...files];
     let modifiedFiles: FileItem[]      = [];
     let previousLog:   ActionLogItem[] = [];
-    let lastErrors:    CleanedError[]  = [];
-    let agentFixed:    boolean         = false;
+    let lastErrors:        CleanedError[]  = [];
+    let agentFixed:        boolean         = false;
+    let completionMessage: string          = instruction;
 
     while (!agentFixed && timeRemaining() > 0) {
       const agentResponse = await modifyAgent({
@@ -94,7 +97,10 @@ export async function modifyOrchestrator(
 
       if (agentResponse.action === "0") {
         agentFixed = agentResponse.fixed_status;
-        previousLog.push({ action: "0", data: '', result: '' });
+        if (agentFixed && typeof agentResponse.data === 'string' && agentResponse.data.trim()) {
+          completionMessage = agentResponse.data.trim();
+        }
+        previousLog.push({ action: "0", data: agentResponse.data as string, result: '' });
         break;
       }
     }
@@ -125,7 +131,7 @@ export async function modifyOrchestrator(
         success:       true,
         files:         currentFiles,
         modifiedFiles,
-        message:       instruction,
+        message:       completionMessage,
         errors:        []
       };
     }
@@ -200,7 +206,10 @@ export async function modifyOrchestrator(
 
         if (agentResponse.action === "0") {
           isFixed = agentResponse.fixed_status;
-          previousLog.push({ action: "0", data: '', result: '' });
+          if (isFixed && typeof agentResponse.data === 'string' && agentResponse.data.trim()) {
+            completionMessage = agentResponse.data.trim();
+          }
+          previousLog.push({ action: "0", data: agentResponse.data as string, result: '' });
           break;
         }
       }
@@ -234,7 +243,7 @@ export async function modifyOrchestrator(
         success:       true,
         files:         currentFiles,
         modifiedFiles,
-        message:       instruction,
+        message:       completionMessage,
         errors:        []
       };
     }

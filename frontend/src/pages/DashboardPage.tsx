@@ -37,14 +37,14 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
 
   return (
     <div className="dashboard-layout">
-      <Sidebar
-        projects={projects}
-        onLogout={onLogout}
-      />
       <main className="dashboard-main">
         <h2>Build a new website</h2>
         <PromptInput onSubmit={handleBuild} />
       </main>
+      <Sidebar
+        projects={projects}
+        onLogout={onLogout}
+      />
     </div>
   );
 }

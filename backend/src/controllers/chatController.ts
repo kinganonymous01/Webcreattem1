@@ -8,10 +8,33 @@ import { getProjectById, updateProjectChatHistory, updateProjectFilesAndHistory 
 
 const processingProjects = new Map<string, ProcessingLock>();
 
+function streamAssistantUpdate(
+  userId: string,
+  projectId: string,
+  message: string,
+  history: ChatMessage[],
+  final = false
+): void {
+  const chatMessage: ChatMessage = {
+    role: 'assistant',
+    message,
+    timestamp: new Date()
+  };
+
+  history.push(chatMessage);
+  sendToClient(userId, {
+    projectId,
+    type: 'chat',
+    status: message,
+    chatMessage,
+    final
+  });
+}
+
 export async function chat(req: Request, res: Response): Promise<any> {
-  const { userId }                             = req.user;
-  const { projectId, message, chatHistory }    = req.body;
-  const originalMessage                        = message;
+  const { userId }                          = req.user;
+  const { projectId, message, chatHistory } = req.body;
+  const originalMessage                     = message;
 
   if (processingProjects.has(projectId)) {
     return res.status(409).json({
@@ -21,6 +44,7 @@ export async function chat(req: Request, res: Response): Promise<any> {
   }
 
   const operationId = crypto.randomUUID();
+  const streamedMessages: ChatMessage[] = [];
   processingProjects.set(projectId, { userId, operationId });
 
   try {
@@ -34,7 +58,7 @@ export async function chat(req: Request, res: Response): Promise<any> {
       return res.status(403).json({ success: false, message: 'Forbidden' });
     }
 
-    sendToClient(userId, { projectId, type: 'chat', status: 'Analyzing request...' });
+    streamAssistantUpdate(userId, projectId, 'Analyzing request...', streamedMessages);
 
     const summaryResult = await chatSummarizerAgent({
       chatHistory,
@@ -42,7 +66,7 @@ export async function chat(req: Request, res: Response): Promise<any> {
     });
 
     if (summaryResult.type === 'question') {
-      sendToClient(userId, { projectId, type: 'chat', status: 'Generating reply...' });
+      streamAssistantUpdate(userId, projectId, 'Generating reply...', streamedMessages);
 
       const reply = await replyGenerationAgent({
         chatHistory,
@@ -50,10 +74,12 @@ export async function chat(req: Request, res: Response): Promise<any> {
         instruction:    summaryResult.instruction
       });
 
+      streamAssistantUpdate(userId, projectId, reply, streamedMessages, true);
+
       const updatedHistory = [
         ...project.chat_history,
-        { role: 'user',      message: originalMessage, timestamp: new Date() },
-        { role: 'assistant', message: reply,            timestamp: new Date() }
+        { role: 'user', message: originalMessage, timestamp: new Date() },
+        ...streamedMessages
       ];
 
       try {
@@ -69,18 +95,25 @@ export async function chat(req: Request, res: Response): Promise<any> {
       });
     }
 
-    sendToClient(userId, { projectId, type: 'chat', status: 'Modifier agent working...' });
+    streamAssistantUpdate(userId, projectId, 'Modifier agent working...', streamedMessages);
 
     const result = await modifyOrchestrator({
       files:        project.files,
       descriptions: project.descriptions,
       instruction:  summaryResult.instruction,
       projectId,
-      userId
+      userId,
+      onStatus: (statusMessage) => streamAssistantUpdate(userId, projectId, statusMessage, streamedMessages)
     });
 
     if (!result.success) {
-      sendToClient(userId, { projectId, type: 'chat', status: 'Could not complete within time limit' });
+      streamAssistantUpdate(userId, projectId, 'Could not complete within time limit', streamedMessages, true);
+      const updatedHistory = [
+        ...project.chat_history,
+        { role: 'user', message: originalMessage, timestamp: new Date() },
+        ...streamedMessages
+      ];
+      await updateProjectChatHistory(projectId, updatedHistory);
       return res.status(200).json({
         type:    'modification',
         files:   [],
@@ -88,10 +121,12 @@ export async function chat(req: Request, res: Response): Promise<any> {
       });
     }
 
+    streamAssistantUpdate(userId, projectId, result.message, streamedMessages, true);
+
     const updatedHistory = [
       ...project.chat_history,
-      { role: 'user',      message: originalMessage, timestamp: new Date() },
-      { role: 'assistant', message: result.message,  timestamp: new Date() }
+      { role: 'user', message: originalMessage, timestamp: new Date() },
+      ...streamedMessages
     ];
 
     try {
@@ -108,7 +143,7 @@ export async function chat(req: Request, res: Response): Promise<any> {
 
   } catch (innerErr) {
     console.error('Chat error:', innerErr);
-    sendToClient(userId, { projectId, type: 'chat', status: 'An unexpected error occurred' });
+    streamAssistantUpdate(userId, projectId, 'An unexpected error occurred', streamedMessages, true);
     return res.status(500).json({ success: false, message: 'An unexpected error occurred' });
 
   } finally {

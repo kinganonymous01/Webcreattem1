@@ -1,34 +1,90 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useWebSocket } from '../context/WebSocketContext';
 import * as webContainerService from '../services/webContainerService';
 import { getProject } from '../api/projectApi';
+import { build as buildApi } from '../api/buildApi';
 import { chat as chatApi } from '../api/chatApi';
 import ChatPanel from '../components/project/ChatPanel';
 import FileViewer from '../components/project/FileViewer';
 import PreviewPanel from '../components/project/PreviewPanel';
-import LoadingScreen from '../components/shared/LoadingScreen';
+
+interface PendingCreationState {
+  projectId:        string;
+  prompt:           string;
+  pendingCreation?: boolean;
+}
 
 export default function ProjectPage() {
   const [files,         setFiles]         = useState<FileItem[]>([]);
   const [structure,     setStructure]     = useState<FolderStructure | null>(null);
   const [chatHistory,   setChatHistory]   = useState<ChatMessage[]>([]);
   const [previewUrl,    setPreviewUrl]    = useState<string | null>(null);
-  const [isBooting,     setIsBooting]     = useState<boolean>(false);
   const [statusMsg,     setStatusMsg]     = useState<string>('');
   const [inputDisabled, setInputDisabled] = useState<boolean>(false);
+  const [prerequisites, setPrerequisites] = useState<PreviewPrerequisite[]>(
+    webContainerService.getPrerequisiteTemplate()
+  );
 
-  const hasBooted = useRef<boolean>(false);
+  const hasStartedPreview  = useRef<boolean>(false);
+  const hasStartedCreation = useRef<boolean>(false);
 
   const location = useLocation();
   const navigate = useNavigate();
   const { id: projectId } = useParams<{ id: string }>();
   const { ws, registerHandler, unregisterHandler } = useWebSocket();
 
-  useEffect(() => {
-    const state = location.state as ProjectResponse | null;
+  const mergePrerequisite = useCallback((step: PreviewPrerequisite) => {
+    setPrerequisites(prev => prev.map(item => (
+      item.id === step.id ? step : item
+    )));
+  }, []);
 
-    if (state && state.files) {
+  const appendStreamedChatMessage = useCallback((msg: ChatMessage) => {
+    setChatHistory(prev => [...prev, msg]);
+  }, []);
+
+  const appendFinalMessageIfNeeded = useCallback((message: string) => {
+    setChatHistory(prev => {
+      const last = prev[prev.length - 1];
+      if (last?.role === 'assistant' && last.message === message) return prev;
+      return [...prev, { role: 'assistant', message, timestamp: new Date() }];
+    });
+  }, []);
+
+  useEffect(() => {
+    webContainerService.bootContainer().catch(err => {
+      console.error('WebContainer boot failed:', err);
+    });
+  }, []);
+
+  useEffect(() => {
+    const handlerId = `project-page-${projectId || 'unknown'}`;
+
+    if (ws !== null) {
+      registerHandler(handlerId, (msg: WSMessage) => {
+        if (msg.projectId !== projectId) return;
+        if (msg.status) setStatusMsg(msg.status);
+        if (msg.chatMessage) appendStreamedChatMessage(msg.chatMessage);
+      });
+    }
+
+    return () => {
+      if (ws !== null) unregisterHandler(handlerId);
+    };
+  }, [ws, projectId, registerHandler, unregisterHandler, appendStreamedChatMessage]);
+
+  useEffect(() => {
+    const state = location.state as PendingCreationState | ProjectResponse | null;
+
+    if (state && 'pendingCreation' in state && state.pendingCreation) {
+      setFiles([]);
+      setStructure(null);
+      setChatHistory([]);
+      return;
+    }
+
+    if (state && 'files' in state && state.files) {
       setFiles(state.files);
       setStructure(state.structure);
       setChatHistory(state.chatHistory || []);
@@ -45,49 +101,62 @@ export default function ProjectPage() {
     } else {
       navigate('/dashboard');
     }
-  }, []);
+  }, [location.state, navigate, projectId]);
+
+  useEffect(() => {
+    const state = location.state as PendingCreationState | null;
+    if (!state?.pendingCreation || hasStartedCreation.current || !projectId) return;
+
+    hasStartedCreation.current = true;
+    setInputDisabled(true);
+    setStatusMsg('Starting build...');
+
+    buildApi(state.prompt, projectId)
+      .then(response => {
+        setFiles(response.files);
+        setStructure(response.structure);
+        if (response.chatHistory && response.chatHistory.length > 0) {
+          setChatHistory(response.chatHistory);
+        }
+      })
+      .catch(err => {
+        console.error('Build error:', err);
+        appendFinalMessageIfNeeded('Build failed. Please try again.');
+      })
+      .finally(() => {
+        setInputDisabled(false);
+        setStatusMsg('');
+        navigate(`/project/${projectId}`, { replace: true });
+      });
+  }, [location.state, projectId, navigate, appendFinalMessageIfNeeded]);
 
   useEffect(() => {
     if (files.length === 0)  return;
-    if (hasBooted.current)   return;
+    if (hasStartedPreview.current) return;
 
-    hasBooted.current = true;
-
-    setIsBooting(true);
+    hasStartedPreview.current = true;
+    setPreviewUrl(null);
+    setPrerequisites(webContainerService.getPrerequisiteTemplate());
     setStatusMsg('Starting preview...');
 
-    webContainerService.startContainer(files)
+    webContainerService.startContainer(files, mergePrerequisite)
       .then(url => {
         setPreviewUrl(url);
-        setIsBooting(false);
       })
       .catch(err => {
         console.error('WebContainer start failed:', err);
-        setIsBooting(false);
+      })
+      .finally(() => {
+        setStatusMsg('');
       });
-
-  }, [files]);
+  }, [files, mergePrerequisite]);
 
   useEffect(() => {
     return () => {
-      hasBooted.current = false;
+      hasStartedPreview.current = false;
       webContainerService.cleanup();
     };
   }, []);
-
-  useEffect(() => {
-    const handlerId = 'project-page';
-
-    if (ws !== null) {
-      registerHandler(handlerId, (msg: WSMessage) => {
-        if (msg.status) setStatusMsg(msg.status);
-      });
-    }
-
-    return () => {
-      if (ws !== null) unregisterHandler(handlerId);
-    };
-  }, [ws]);
 
   async function handleMessage(userInput: string) {
     const userMsg: ChatMessage = {
@@ -101,31 +170,14 @@ export default function ProjectPage() {
     setInputDisabled(true);
     setStatusMsg('Sending...');
 
-    let handlerRegistered = false;
-
     try {
-      if (ws !== null) {
-        registerHandler('chat-status', (msg: WSMessage) => {
-          setStatusMsg(msg.status);
-        });
-        handlerRegistered = true;
-      }
-
       const response = await chatApi({
         projectId:   projectId!,
         message:     userInput,
         chatHistory: newHistory
       });
 
-      if (response.type === 'question') {
-        const assistantMsg: ChatMessage = {
-          role:      'assistant',
-          message:   response.message,
-          timestamp: new Date()
-        };
-        setChatHistory(prev => [...prev, assistantMsg]);
-
-      } else if (response.type === 'modification' && response.files.length > 0) {
+      if (response.type === 'modification' && response.files.length > 0) {
         const updatedFiles: FileItem[] = [...files];
         for (const modFile of response.files) {
           const idx = updatedFiles.findIndex(f => f.path === modFile.path);
@@ -137,38 +189,25 @@ export default function ProjectPage() {
         }
 
         setFiles(updatedFiles);
-
-        const assistantMsg: ChatMessage = {
-          role: 'assistant', message: response.message, timestamp: new Date()
-        };
-        setChatHistory(prev => [...prev, assistantMsg]);
+        appendFinalMessageIfNeeded(response.message);
 
         setStatusMsg('Restarting preview...');
-        const url = await webContainerService.restart(updatedFiles);
+        setPrerequisites(webContainerService.getPrerequisiteTemplate());
+        const url = await webContainerService.restart(updatedFiles, mergePrerequisite);
         setPreviewUrl(url);
 
       } else {
-        setChatHistory(prev => [...prev, {
-          role: 'assistant', message: response.message, timestamp: new Date()
-        }]);
+        appendFinalMessageIfNeeded(response.message);
       }
 
     } catch (err) {
-      setChatHistory(prev => [...prev, {
-        role: 'assistant', message: 'Something went wrong. Please try again.', timestamp: new Date()
-      }]);
+      console.error('Chat error:', err);
+      appendFinalMessageIfNeeded('Something went wrong. Please try again.');
 
     } finally {
-      if (handlerRegistered && ws !== null) {
-        unregisterHandler('chat-status');
-      }
       setInputDisabled(false);
       setStatusMsg('');
     }
-  }
-
-  if (isBooting) {
-    return <LoadingScreen status={statusMsg} />;
   }
 
   return (
@@ -179,7 +218,11 @@ export default function ProjectPage() {
         disabled={inputDisabled}
       />
       <FileViewer files={files} />
-      <PreviewPanel previewUrl={previewUrl} />
+      <PreviewPanel
+        previewUrl={previewUrl}
+        fileCount={files.length}
+        prerequisites={prerequisites}
+      />
     </div>
   );
 }

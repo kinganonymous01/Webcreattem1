@@ -107,9 +107,18 @@ interface ModifyOrchestratorResult {
 }
 
 interface WSMessage {
-  projectId: string
-  type:      "build" | "chat"
-  status:    string
+  projectId:    string
+  type:         "build" | "chat"
+  status:       string
+  chatMessage?: ChatMessage
+  streamId?:    string
+  final?:       boolean
+}
+
+interface PreviewPrerequisite {
+  id:     string
+  label:  string
+  status: "pending" | "running" | "complete" | "error"
 }
 
 interface BuildResponse {
@@ -118,6 +127,7 @@ interface BuildResponse {
   projectName: string
   structure:   FolderStructure
   files:       FileItem[]
+  chatHistory?: ChatMessage[]
   message?:    string
 }
 

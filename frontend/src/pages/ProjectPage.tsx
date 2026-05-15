@@ -211,18 +211,27 @@ export default function ProjectPage() {
   }
 
   return (
-    <div className="project-layout">
-      <ChatPanel
-        chatHistory={chatHistory}
-        onSend={handleMessage}
-        disabled={inputDisabled}
-      />
-      <FileViewer files={files} />
-      <PreviewPanel
-        previewUrl={previewUrl}
-        fileCount={files.length}
-        prerequisites={prerequisites}
-      />
-    </div>
+    <main className="project-shell">
+      <header className="project-topbar">
+        <h1 className="project-title">Project workspace</h1>
+        <span className={`project-status ${statusMsg ? 'project-status--active' : ''}`}>
+          {statusMsg || `${files.length} file${files.length === 1 ? '' : 's'} loaded`}
+        </span>
+      </header>
+
+      <div className="project-layout">
+        <ChatPanel
+          chatHistory={chatHistory}
+          onSend={handleMessage}
+          disabled={inputDisabled}
+        />
+        <FileViewer files={files} />
+        <PreviewPanel
+          previewUrl={previewUrl}
+          fileCount={files.length}
+          prerequisites={prerequisites}
+        />
+      </div>
+    </main>
   );
 }

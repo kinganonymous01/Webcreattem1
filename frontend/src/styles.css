@@ -210,26 +210,35 @@ input::placeholder {
 }
 
 .dashboard-layout {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(2rem, 5vw, 4rem);
-  width: min(100%, 760px);
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: clamp(1.25rem, 3vw, 2.5rem);
+  width: min(94vw, 1280px);
+  min-height: 100vh;
   margin: 0 auto;
-  padding: clamp(2rem, 8vw, 7rem) clamp(1rem, 4vw, 1.7rem);
+  padding: clamp(1.25rem, 3vw, 2.5rem) 0;
 }
 
 .dashboard-main {
-  order: 1;
+  grid-column: 2;
+  grid-row: 1;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  min-width: 0;
+  min-height: calc(100vh - clamp(2.5rem, 6vw, 5rem));
 }
 
 .sidebar {
-  order: 2;
+  grid-column: 1;
+  grid-row: 1;
+  align-self: stretch;
 }
 
 .dashboard-main h2 {
   margin-bottom: 1.7rem;
   text-align: center;
-  font-size: clamp(2.25rem, 7vw, 4rem);
+  font-size: clamp(2.25rem, 6vw, 4.35rem);
 }
 
 .prompt-input,
@@ -243,37 +252,41 @@ input::placeholder {
 .prompt-input {
   display: grid;
   gap: 1.25rem;
+  width: min(100%, 820px);
   padding: clamp(1.1rem, 4vw, 1.55rem);
 }
 
 .prompt-input textarea {
-  min-height: clamp(170px, 28vw, 260px);
+  min-height: clamp(210px, 29vw, 340px);
   padding: clamp(1.1rem, 4vw, 1.8rem);
   resize: vertical;
-  font-size: clamp(1.05rem, 3.2vw, 1.55rem);
+  font-size: clamp(1.05rem, 2.8vw, 1.55rem);
   line-height: 1.45;
 }
 
 .prompt-input button,
 .logout-button {
   border-radius: 18px;
-  font-size: clamp(1.05rem, 3vw, 1.35rem);
+  font-size: clamp(1.05rem, 2.5vw, 1.35rem);
 }
 
 .sidebar {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 1.5rem;
-  padding: clamp(1.2rem, 5vw, 2rem);
+  min-height: calc(100vh - clamp(2.5rem, 6vw, 5rem));
+  padding: clamp(1.2rem, 3vw, 2rem);
 }
 
 .sidebar h2 {
-  font-size: clamp(2rem, 5vw, 3rem);
+  font-size: clamp(2rem, 4vw, 3rem);
 }
 
 .sidebar-projects {
   display: grid;
+  align-content: start;
   gap: 1rem;
-  max-height: 42vh;
+  min-height: 0;
   overflow: auto;
   padding-right: 0.15rem;
 }
@@ -284,7 +297,7 @@ input::placeholder {
   justify-content: space-between;
   gap: 1rem;
   width: 100%;
-  padding: clamp(1rem, 3vw, 1.4rem);
+  padding: clamp(1rem, 2vw, 1.4rem);
   color: var(--text);
   text-align: left;
   background: rgba(255, 255, 255, 0.06);
@@ -303,7 +316,7 @@ input::placeholder {
 .project-name {
   min-width: 0;
   overflow: hidden;
-  font-size: clamp(1rem, 2.5vw, 1.3rem);
+  font-size: clamp(1rem, 2vw, 1.3rem);
   font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -312,7 +325,7 @@ input::placeholder {
 .project-date,
 .sidebar-empty {
   color: var(--muted);
-  font-size: clamp(0.95rem, 2.4vw, 1.2rem);
+  font-size: clamp(0.95rem, 2vw, 1.2rem);
 }
 
 .sidebar-empty {
@@ -323,17 +336,23 @@ input::placeholder {
 }
 
 .project-layout {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  width: min(100%, 1120px);
+  width: min(96vw, 1480px);
+  min-height: 100vh;
   margin: 0 auto;
-  padding: clamp(1rem, 3vw, 2rem) clamp(1rem, 7vw, 5.5rem) clamp(1rem, 3vw, 2rem) clamp(1rem, 3vw, 2rem);
+  padding: clamp(0.9rem, 2vw, 1.5rem) 0;
 }
 
-.project-panels {
+.project-desktop-shell {
+  display: grid;
+  grid-template-columns: minmax(330px, 36vw) minmax(0, 1fr);
+  gap: clamp(1rem, 2vw, 1.6rem);
+  min-height: calc(100vh - clamp(1.8rem, 4vw, 3rem));
+}
+
+.project-chat-column,
+.project-detail-column,
+.project-mobile-shell {
   min-width: 0;
-  min-height: calc(100vh - clamp(2rem, 6vw, 4rem));
   border: 1px solid var(--line);
   background: linear-gradient(160deg, rgba(11, 22, 48, 0.92), rgba(4, 10, 25, 0.94));
   border-radius: var(--radius-lg);
@@ -341,23 +360,41 @@ input::placeholder {
   overflow: hidden;
 }
 
-.project-panel {
+.project-chat-column,
+.project-detail-column {
+  height: calc(100vh - clamp(1.8rem, 4vw, 3rem));
+  min-height: 650px;
+}
+
+.project-detail-column,
+.project-mobile-shell {
+  position: relative;
+}
+
+.project-mobile-shell {
   display: none;
+}
+
+.project-detail-panel,
+.project-mobile-panel {
+  display: none;
+  height: 100%;
   min-height: inherit;
 }
 
-.project-panel--active {
+.project-detail-panel--active,
+.project-mobile-panel--active {
   display: block;
 }
 
 .project-nav {
-  position: fixed;
+  position: absolute;
   top: 50%;
-  right: clamp(0.45rem, 2vw, 1.65rem);
+  right: clamp(0.65rem, 1.6vw, 1.25rem);
   z-index: 20;
   display: grid;
   gap: 0.25rem;
-  width: clamp(82px, 12vw, 126px);
+  width: clamp(86px, 8vw, 126px);
   padding: clamp(1rem, 2.4vw, 1.6rem) 0.55rem;
   transform: translateY(-50%);
   background: linear-gradient(160deg, rgba(154, 3, 72, 0.94), rgba(102, 2, 60, 0.92));
@@ -371,7 +408,7 @@ input::placeholder {
   width: 100%;
   padding: clamp(0.75rem, 2vw, 1rem) 0.25rem;
   color: rgba(255, 255, 255, 0.72);
-  font-size: clamp(0.95rem, 2vw, 1.18rem);
+  font-size: clamp(0.95rem, 1.6vw, 1.18rem);
   font-weight: 500;
   background: transparent;
   border-radius: 999px;
@@ -391,8 +428,8 @@ input::placeholder {
 .chat-panel,
 .file-viewer,
 .preview-panel {
-  height: calc(100vh - clamp(2rem, 6vw, 4rem));
-  min-height: 620px;
+  height: 100%;
+  min-height: inherit;
   background: transparent;
 }
 
@@ -436,7 +473,7 @@ input::placeholder {
 .chat-content {
   margin: 0;
   color: var(--text);
-  font-size: clamp(1rem, 2.4vw, 1.28rem);
+  font-size: clamp(1rem, 2.2vw, 1.28rem);
   line-height: 1.55;
   white-space: pre-wrap;
 }
@@ -453,7 +490,7 @@ input::placeholder {
   min-height: 125px;
   padding: clamp(1rem, 2.4vw, 1.35rem);
   resize: vertical;
-  font-size: clamp(1rem, 2.4vw, 1.18rem);
+  font-size: clamp(1rem, 2.2vw, 1.18rem);
 }
 
 .file-viewer {
@@ -628,15 +665,35 @@ input::placeholder {
   }
 }
 
-@media (min-width: 900px) {
-  .dashboard-layout {
-    width: min(92vw, 820px);
-  }
-}
-
 @media (max-width: 760px) {
   .dashboard-layout {
-    padding-top: 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2rem, 5vw, 4rem);
+    width: 87vw;
+    min-height: 100vh;
+    padding: clamp(3.5rem, 10vw, 5rem) 0;
+  }
+
+  .dashboard-main,
+  .sidebar {
+    width: 100%;
+  }
+
+  .dashboard-main {
+    min-height: auto;
+  }
+
+  .sidebar {
+    min-height: auto;
+  }
+
+  .prompt-input {
+    width: 100%;
+  }
+
+  .prompt-input textarea {
+    min-height: clamp(170px, 45vw, 260px);
   }
 
   .sidebar-project-item {
@@ -645,25 +702,29 @@ input::placeholder {
   }
 
   .project-layout {
-    padding: 0.75rem 4.9rem 0.75rem 0.75rem;
+    width: 94vw;
+    padding: 0.75rem 0;
   }
 
-  .project-panels {
-    min-height: calc(100vh - 1.5rem);
-    border-radius: 0;
+  .project-desktop-shell {
+    display: none;
   }
 
-  .chat-panel,
-  .file-viewer,
-  .preview-panel {
+  .project-mobile-shell {
+    display: block;
     height: calc(100vh - 1.5rem);
     min-height: 540px;
+    border-radius: var(--radius-lg);
   }
 
   .project-nav {
-    right: 0.35rem;
-    width: 4.3rem;
+    right: clamp(0.5rem, 2vw, 0.9rem);
+    width: clamp(68px, 18vw, 86px);
     padding: 1rem 0.28rem;
+  }
+
+  .project-nav-button {
+    font-size: clamp(0.84rem, 3.6vw, 0.98rem);
   }
 
   .file-viewer {
@@ -683,12 +744,18 @@ input::placeholder {
   .preview-toolbar {
     align-items: stretch;
     flex-direction: column;
+    padding-right: 5rem;
+  }
+
+  .chat-messages,
+  .chat-input-area {
+    padding: 0.9rem;
   }
 }
 
 @media (max-width: 430px) {
   .project-layout {
-    padding-right: 4.35rem;
+    width: 95vw;
   }
 
   .project-nav {

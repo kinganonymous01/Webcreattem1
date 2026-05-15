@@ -15,7 +15,8 @@ interface PendingCreationState {
   pendingCreation?: boolean;
 }
 
-type ProjectPanel = 'preview' | 'chat' | 'files';
+type ProjectMobilePanel = 'preview' | 'chat' | 'files';
+type ProjectDetailPanel = 'preview' | 'files';
 
 export default function ProjectPage() {
   const [files,         setFiles]         = useState<FileItem[]>([]);
@@ -24,7 +25,8 @@ export default function ProjectPage() {
   const [previewUrl,    setPreviewUrl]    = useState<string | null>(null);
   const [statusMsg,     setStatusMsg]     = useState<string>('');
   const [inputDisabled, setInputDisabled] = useState<boolean>(false);
-  const [activePanel,   setActivePanel]   = useState<ProjectPanel>('chat');
+  const [activeMobilePanel, setActiveMobilePanel] = useState<ProjectMobilePanel>('chat');
+  const [activeDetailPanel, setActiveDetailPanel] = useState<ProjectDetailPanel>('preview');
   const [prerequisites, setPrerequisites] = useState<PreviewPrerequisite[]>(
     webContainerService.getPrerequisiteTemplate()
   );
@@ -213,18 +215,67 @@ export default function ProjectPage() {
     }
   }
 
-  const panels: { id: ProjectPanel; label: string }[] = [
+  const mobilePanels: { id: ProjectMobilePanel; label: string }[] = [
     { id: 'preview', label: 'Preview' },
     { id: 'chat',    label: 'Chat' },
     { id: 'files',   label: 'Files' }
   ];
 
+  const detailPanels: { id: ProjectDetailPanel; label: string }[] = [
+    { id: 'preview', label: 'Preview' },
+    { id: 'files',   label: 'Files' }
+  ];
+
   return (
     <div className="project-layout">
-      <main className="project-panels">
+      <main className="project-desktop-shell">
+        <section className="project-chat-column" aria-label="Project chat">
+          <ChatPanel
+            chatHistory={chatHistory}
+            onSend={handleMessage}
+            disabled={inputDisabled}
+          />
+        </section>
+
+        <section className="project-detail-column" aria-label="Project details">
+          <div
+            className={`project-detail-panel ${activeDetailPanel === 'preview' ? 'project-detail-panel--active' : ''}`}
+            aria-hidden={activeDetailPanel !== 'preview'}
+          >
+            <PreviewPanel
+              previewUrl={previewUrl}
+              fileCount={files.length}
+              prerequisites={prerequisites}
+            />
+          </div>
+
+          <div
+            className={`project-detail-panel ${activeDetailPanel === 'files' ? 'project-detail-panel--active' : ''}`}
+            aria-hidden={activeDetailPanel !== 'files'}
+          >
+            <FileViewer files={files} />
+          </div>
+
+          <nav className="project-nav project-nav--desktop" aria-label="Project detail sections">
+            {detailPanels.map(panel => (
+              <button
+                key={panel.id}
+                type="button"
+                className={`project-nav-button ${activeDetailPanel === panel.id ? 'project-nav-button--active' : ''}`}
+                aria-pressed={activeDetailPanel === panel.id}
+                onClick={() => setActiveDetailPanel(panel.id)}
+              >
+                {panel.label}
+              </button>
+            ))}
+          </nav>
+        </section>
+      </main>
+
+      <main className="project-mobile-shell">
         <section
-          className={`project-panel ${activePanel === 'preview' ? 'project-panel--active' : ''}`}
-          aria-hidden={activePanel !== 'preview'}
+          className={`project-mobile-panel ${activeMobilePanel === 'preview' ? 'project-mobile-panel--active' : ''}`}
+          aria-hidden={activeMobilePanel !== 'preview'}
         >
           <PreviewPanel
             previewUrl={previewUrl}
@@ -234,8 +285,8 @@ export default function ProjectPage() {
         </section>
 
         <section
-          className={`project-panel ${activePanel === 'chat' ? 'project-panel--active' : ''}`}
-          aria-hidden={activePanel !== 'chat'}
+          className={`project-mobile-panel ${activeMobilePanel === 'chat' ? 'project-mobile-panel--active' : ''}`}
+          aria-hidden={activeMobilePanel !== 'chat'}
         >
           <ChatPanel
             chatHistory={chatHistory}
@@ -245,26 +296,26 @@ export default function ProjectPage() {
         </section>
 
         <section
-          className={`project-panel ${activePanel === 'files' ? 'project-panel--active' : ''}`}
-          aria-hidden={activePanel !== 'files'}
+          className={`project-mobile-panel ${activeMobilePanel === 'files' ? 'project-mobile-panel--active' : ''}`}
+          aria-hidden={activeMobilePanel !== 'files'}
         >
           <FileViewer files={files} />
         </section>
-      </main>
 
-      <nav className="project-nav" aria-label="Project sections">
-        {panels.map(panel => (
-          <button
-            key={panel.id}
-            type="button"
-            className={`project-nav-button ${activePanel === panel.id ? 'project-nav-button--active' : ''}`}
-            aria-pressed={activePanel === panel.id}
-            onClick={() => setActivePanel(panel.id)}
-          >
-            {panel.label}
-          </button>
-        ))}
-      </nav>
+        <nav className="project-nav project-nav--mobile" aria-label="Project sections">
+          {mobilePanels.map(panel => (
+            <button
+              key={panel.id}
+              type="button"
+              className={`project-nav-button ${activeMobilePanel === panel.id ? 'project-nav-button--active' : ''}`}
+              aria-pressed={activeMobilePanel === panel.id}
+              onClick={() => setActiveMobilePanel(panel.id)}
+            >
+              {panel.label}
+            </button>
+          ))}
+        </nav>
+      </main>
     </div>
   );
 }

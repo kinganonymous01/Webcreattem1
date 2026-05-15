@@ -252,7 +252,7 @@ input::placeholder {
 .prompt-input {
   display: grid;
   gap: 1.25rem;
-  width: min(100%, 820px);
+  width: min(100%, 1000px);
   padding: clamp(1.1rem, 4vw, 1.55rem);
 }
 
@@ -288,15 +288,20 @@ input::placeholder {
   gap: 1rem;
   min-height: 0;
   overflow: auto;
+  overflow-x: hidden;
   padding-right: 0.15rem;
 }
 
 .sidebar-project-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 0.45rem;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   padding: clamp(1rem, 2vw, 1.4rem);
   color: var(--text);
   text-align: left;
@@ -318,14 +323,20 @@ input::placeholder {
   overflow: hidden;
   font-size: clamp(1rem, 2vw, 1.3rem);
   font-weight: 900;
+  overflow-wrap: anywhere;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .project-date,
 .sidebar-empty {
+  max-width: 100%;
   color: var(--muted);
   font-size: clamp(0.95rem, 2vw, 1.2rem);
+}
+
+.project-date {
+  white-space: nowrap;
 }
 
 .sidebar-empty {
@@ -353,7 +364,6 @@ input::placeholder {
 .project-detail-column,
 .project-mobile-shell {
   min-width: 0;
-  border: 1px solid var(--line);
   background: linear-gradient(160deg, rgba(11, 22, 48, 0.92), rgba(4, 10, 25, 0.94));
   border-radius: var(--radius-lg);
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.42), 0 0 52px rgba(102, 2, 60, 0.22);
@@ -448,7 +458,11 @@ input::placeholder {
 }
 
 .chat-message {
+  align-self: flex-start;
+  width: fit-content;
+  max-width: min(82%, 760px);
   padding: clamp(1rem, 3vw, 1.45rem);
+  overflow-wrap: anywhere;
   background: var(--panel-strong);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
@@ -456,8 +470,13 @@ input::placeholder {
 }
 
 .chat-message--user {
+  align-self: flex-end;
   border-color: rgba(255, 196, 228, 0.28);
   background: rgba(102, 2, 60, 0.2);
+}
+
+.chat-message--user .chat-role {
+  text-align: right;
 }
 
 .chat-role {
@@ -694,11 +713,6 @@ input::placeholder {
 
   .prompt-input textarea {
     min-height: clamp(170px, 45vw, 260px);
-  }
-
-  .sidebar-project-item {
-    align-items: flex-start;
-    flex-direction: column;
   }
 
   .project-layout {
